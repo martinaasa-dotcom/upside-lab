@@ -49,7 +49,7 @@ export function FourQuestions({
             />
           </span>
         }
-        subtitle={`Four questions to answer before putting money into ${cashtag(ticker)}, in its own figures. Everything below is the working behind one of them.`}
+        subtitle={`What to ask before putting money into ${cashtag(ticker)}, in its own figures.`}
         icon={<HelpCircle className="h-4 w-4" />}
       />
       <div className="grid gap-4 lg:grid-cols-2">

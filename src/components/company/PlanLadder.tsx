@@ -6,7 +6,7 @@ import { WhyThis } from "@/components/ui/WhyThis";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
-import { cashtag, cn, currency, percent } from "@/lib/format";
+import { cn, currency, percent } from "@/lib/format";
 import { planLadderProvenance } from "@/lib/provenance";
 import {
   ladderRead,
@@ -294,8 +294,7 @@ export function PlanLadderTable({
         <Card tone="default" className="flex flex-col gap-3 p-5">
           <MicroLabel>Change the {band.label} level</MicroLabel>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            The price at the top of that band. The band below ends where
-            this one starts, so moving it moves both.
+            The top of this zone. Moving it moves the zone next to it too.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -326,7 +325,7 @@ export function PlanLadderTable({
                 setEditing(null);
               }}
             >
-              Back to the worked-out level
+              Reset this level
             </Button>
           </div>
         </Card>
@@ -357,7 +356,7 @@ export function PlanLadderFoot({
           company that the reader wants anyway.
         */}
         {ladder.farBelow
-          ? ", tighter than usual because the price is a long way under the anchor and the stretch below it is one zone rather than five"
+          ? ", tighter than usual: the price is far under the anchor, so the stretch below is one zone rather than five"
           : ""}
         . {ADVICE_DISCLAIMER_SHORT}
       </p>
@@ -419,19 +418,19 @@ export function PlanLadderPanel({
             />
           </span>
         }
-        subtitle={`Levels decided in advance, so the decision is made now rather than in the middle of a red week. They are built from ${
+        subtitle={`Built on ${
           // What the ladder actually hangs off, which is not always an
           // estimate: a fund and a coin get no valuation anywhere in this
           // app, and a subtitle promising one would be describing a panel
           // that is not on the page.
           ladder.anchorKind === "estimate"
-            ? "what this company looks worth, the same figure everybody else reading it gets"
+            ? "what it looks worth, the figure everybody sees"
             : ladder.anchorKind === "your-own"
               ? "the anchor you typed"
               : ladder.anchorKind === "house"
-                ? "the anchor this app's own account set, which you have not changed"
-                : "the range it has traded in over the last year"
-        } and how far ${cashtag(ticker)} ordinarily travels, and every one of them is yours to change.`}
+                ? "this app's anchor, which you have not changed"
+                : "its trading range over the last year"
+        }. Every level is yours to change.`}
         icon={<ListOrdered className="h-4 w-4" />}
         actions={
           ladder.spot !== null ? (

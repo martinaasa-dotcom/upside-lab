@@ -560,8 +560,8 @@ function MethodRow({
 }
 
 const CONFIDENCE_LINE = {
-  none: "Not one of these methods could be run on this company, so there is no estimate to give.",
-  thin: "The estimate rests on a single method rather than a blend, so treat it as one opinion with a decimal point on it.",
+  none: "No method could be run on this company, so there is no estimate.",
+  thin: "One method, not a blend: one opinion with a decimal point on it.",
   mixed: "",
   broad: "",
 } as const;
@@ -612,7 +612,7 @@ export function ValueGlance({
             )}
           </span>
         }
-        subtitle={`Where ${tag} trades today, what each method below says it is worth today, and the assumption every one of them rests on.`}
+        subtitle={`Where ${tag} trades against what each method says it is worth.`}
         icon={<Gauge className="h-4 w-4" />}
       />
 
@@ -670,10 +670,9 @@ export function ValueGlance({
 
       {implied ? (
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Earnings per share have to compound at {percent(implied.rate, 0)} a
-          year for {implied.years} years, from what analysts expect{" "}
-          {implied.basis}, before today&apos;s price sits at the market&apos;s
-          ordinary multiple
+          For today&apos;s price to be an ordinary multiple, earnings per share
+          have to grow {percent(implied.rate, 0)} a year for {implied.years}{" "}
+          years from what analysts expect {implied.basis}
           {/*
             * The horizon is named, because this page quotes two different
             * expectations of the S&P 500 and they are not the same number.
@@ -690,9 +689,9 @@ export function ValueGlance({
             * conclude one of them is wrong.
             */}
           {implied.marketRate !== null
-            ? `, against the ${percent(implied.marketRate, 0)} a year the S&P 500 is expected to manage over the long run`
+            ? `. The S&P 500 is expected to manage ${percent(implied.marketRate, 0)} a year over the long run`
             : ""}
-          . That is the bet, in one number.
+          .
         </p>
       ) : null}
 
@@ -714,7 +713,7 @@ export function ValueGlance({
             told there are three is a sentence spent on nothing. One
             method, or none, is the case worth naming out loud.
           */}
-          <MicroLabel>How the estimate was worked out</MicroLabel>
+          <MicroLabel>How it was worked out</MicroLabel>
           {CONFIDENCE_LINE[read.estimate.confidence] && (
             <p className="text-sm leading-relaxed text-muted-foreground">
               {CONFIDENCE_LINE[read.estimate.confidence]}

@@ -61,9 +61,8 @@ function PointList({ points }: { points: BriefPoint[] }) {
   if (points.length === 0) {
     return (
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Nothing here could be pinned to a figure on this page or an article
-        below, so this section is empty rather than filled in. That is worth
-        noticing on its own.
+        Nothing here could be tied to a figure or an article, so it is left
+        empty.
       </p>
     );
   }
@@ -115,7 +114,7 @@ export function CompanyCases({
             <WhyThis provenance={provenance} />
           </span>
         }
-        subtitle="A language model read the figures and the articles here and set out the argument each way. Every point names what it rests on."
+        subtitle="Written by a language model. Every point names what it rests on."
         icon={<GitCompare className="h-4 w-4" />}
       />
 
@@ -162,14 +161,14 @@ export function CompanyCases({
       */}
       <p className="text-sm leading-relaxed text-muted-foreground">
         {brief.uncited > 0
-          ? `${brief.uncited === 1 ? "One point was" : `${brief.uncited} points were`} thrown away before you saw this, for naming no figure or article that exists.`
-          : "Every point named something on this page, and none had to be thrown away."}
+          ? `${brief.uncited === 1 ? "One point was" : `${brief.uncited} points were`} dropped for citing nothing that exists.`
+          : "No point had to be dropped."}
         {shared
-          ? " It was written when somebody first looked this company up, not for you."
+          ? " Written when somebody first looked this company up, not for you."
           : ""}
         {at ? ` Written ${formatDateTime(at)}.` : ""}{" "}
-        Choosing which facts matter is a judgement, and it is the
-        model&apos;s. The articles below are how you check it.
+        Which facts matter is the model&apos;s call. The articles below let
+        you check it.
       </p>
     </Panel>
   );

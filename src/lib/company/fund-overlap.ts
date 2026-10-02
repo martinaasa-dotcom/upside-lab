@@ -72,5 +72,5 @@ export function overlapSentence(overlap: FundOverlap | null): string | null {
     be read either as a description or as advice is a word that will be
     read as advice by somebody looking for permission.
   */
-  return `You already own ${list} directly. Among the ${overlap.checked} largest holdings shown here, those come to about ${pct}% of the fund, so this one would add to companies you have rather than only spreading into new ones.`;
+  return `You already own ${list} directly, about ${pct}% of the fund among the ${overlap.checked} largest holdings shown, so this one would add to companies you have.`;
 }

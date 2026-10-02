@@ -48,7 +48,7 @@ describe("the two market-growth figures each say which horizon they mean", () =>
 
   it("names the horizon in the next-year sentence", () => {
     const line = readings.match(
-      /`This is what the price is a bet on[^`]*`/
+      /`The price is a bet on this\.[^`]*`/
     )?.[0];
     expect(line, "the next-year comparison sentence moved").toBeTruthy();
     expect(
@@ -58,7 +58,7 @@ describe("the two market-growth figures each say which horizon they mean", () =>
   });
 
   it("names the horizon in the long-run sentence", () => {
-    const line = glance.match(/`, against[^`]*S&P 500[^`]*`/)?.[0];
+    const line = glance.match(/`\. The S&P 500[^`]*`/)?.[0];
     expect(line, "the long-run comparison sentence moved").toBeTruthy();
     expect(
       line,

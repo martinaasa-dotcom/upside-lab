@@ -571,10 +571,8 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                   Research
                 </h1>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  What it does, what the accounts say, what the price is
-                  assuming, and both sides of the argument. Every figure is
-                  the real one, named properly, with a plain sentence under
-                  it and a link back to where it came from.
+                  What it does, what the figures say, and both sides of the
+                  argument, each linked to its source.
                 </p>
               </div>
               <div className={SPLIT_ACTIONS}>
@@ -605,7 +603,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
           {!ticker ? (
             <EmptyState
               title="Pick a company"
-              detail="Type a name or a ticker above. You do not have to own it, and looking one up changes nothing in your portfolio."
+              detail="Type a name or a ticker above. Looking one up changes nothing in your portfolio."
             />
           ) : error ? (
             <>
@@ -716,10 +714,8 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
               {page.thin && (
                 <Panel tone="warn">
                   <p className="text-sm leading-relaxed text-foreground">
-                    The feed carries very little about this one. What is
-                    below is everything it had, and the parts that are
-                    missing are shown as {NO_VALUE} rather than filled in
-                    with anything.
+                    The feed has little on this one. Anything missing shows
+                    as {NO_VALUE}, never a guess.
                   </p>
                 </Panel>
               )}
@@ -788,13 +784,10 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
               {isCryptoLike(facts) && (
                 <Panel tone="warn">
                   <p className="text-sm leading-relaxed text-foreground">
-                    There is no company behind this one. It files no
-                    accounts, earns no revenue and owns nothing, so most of
-                    what this page does for a company cannot be done here:
-                    there is nothing to value it against except what
-                    somebody else will pay. The price and the range below
-                    are real; everything else on a company page would be
-                    invented.
+                    No company stands behind this one. It files no accounts,
+                    earns nothing and owns nothing, so its only yardstick is
+                    what somebody else will pay. The price and range below
+                    are real.
                   </p>
                 </Panel>
               )}
@@ -879,9 +872,8 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
 
               {book.ready && !book.hasBook && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  This page can also work out what buying this would do to
-                  your own portfolio. It needs your holdings loaded first,
-                  which happens the moment you open Home.
+                  Open Home once and this page can also show what buying
+                  this would do to your portfolio.
                 </p>
               )}
 
@@ -894,17 +886,15 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
 
               {!page.brief && !page.thin && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  The written half of this page could not be produced this
-                  time, so you have the figures and the links and none of
-                  the argument. Pull the page down to try again.
+                  The written argument could not be produced this time. The
+                  figures and links are all here. Pull down to try again.
                 </p>
               )}
 
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Upside Lab is not an adviser and none of this is a
-                recommendation. Every number above came from a public feed
-                and can be checked at the links above. What you do about it
-                is yours.
+                recommendation. Every number comes from a public feed,
+                linked above.
               </p>
             </>
           ) : null}

@@ -866,8 +866,8 @@ function businessMethod(f: CompanyFacts): FairValueMethod | null {
       path.peak
         ? " Its profit just multiplied at a margin well above that, so this treats it as possibly the top of a cycle."
         : ""
-    } Priced as a bad, a middle and a good decade, because a young company's good case is worth far more than its bad case costs.`,
-    working: `Sales growth of ${pct(path.growthNextYear)} next year, fading to ${pct(path.growthYearTen)} by year ten; profit margin ${marginMove}, reaching ${pct(path.marginYearTen)} by year ten.${news.length > 0 ? ` Newest information: ${news.join("; ")}.` : ""} What it pays out along the way plus year ten's profit at ${Math.round(path.exitMultiple)} times, brought back to today at ${risk}. The three cases come to ${currency(path.cases.bear, 2, code)}, ${currency(path.cases.base, 2, code)} and ${currency(path.cases.bull, 2, code)}, weighted a quarter, a half and a quarter. Scaled so a company growing like the market with steady margins is worth what the market paid for one in January 2026, about ${Math.round(CURRENT_MARKET_FORWARD_MULTIPLE)} times next year's profit (Damodaran's data set)${path.industry ? `, and like ${path.industry}, whose profit the market has always priced at about half that` : ""}.`,
+    }`,
+    working: `Sales growth of ${pct(path.growthNextYear)} next year, fading to ${pct(path.growthYearTen)} by year ten; profit margin ${marginMove}, reaching ${pct(path.marginYearTen)} by year ten.${news.length > 0 ? ` Newest information: ${news.join("; ")}.` : ""} What it pays out along the way plus year ten's profit at ${Math.round(path.exitMultiple)} times, brought back to today at ${risk}. Priced as a bad, a middle and a good decade, because a young company's good case is worth far more than its bad case costs. The three cases come to ${currency(path.cases.bear, 2, code)}, ${currency(path.cases.base, 2, code)} and ${currency(path.cases.bull, 2, code)}, weighted a quarter, a half and a quarter. Scaled so a company growing like the market with steady margins is worth what the market paid for one in January 2026, about ${Math.round(CURRENT_MARKET_FORWARD_MULTIPLE)} times next year's profit (Damodaran's data set)${path.industry ? `, and like ${path.industry}, whose profit the market has always priced at about half that` : ""}.`,
     // Less weight on a company still losing money: every year of it is further from a fact.
     weight: losing ? 0.2 : 0.3,
   };
@@ -1169,7 +1169,7 @@ export function blendFairValue(methods: FairValueMethod[]): FairValueBlend {
       dropped.push({
         ...m,
         dropped:
-          "Left out of the blend. It landed more than three times away from what the other methods said, which means the arithmetic has stopped describing this company rather than that it disagrees.",
+          "Left out of the blend. It landed over three times away from the other methods, so the arithmetic has stopped describing this company.",
       });
       continue;
     }
@@ -1305,7 +1305,7 @@ export function fairValueRead(
           {
             ...model,
             dropped:
-              "Shown and not counted. The model's path is grown from today's price, so it is a forecast of where the price goes rather than an estimate of what the company is worth, and it cannot say whether today's price is right.",
+              "Shown, not counted. The model's path grows from today's price, so it forecasts the price rather than estimating worth.",
           },
         ],
       }
@@ -1389,9 +1389,9 @@ export function valueGlance(read: FairValueRead): ValueGlance {
       position: "unknown",
       low: null,
       high: null,
-      read: "There is not enough in the feed to estimate this one, so the price below stands on its own.",
+      read: "There is not enough in the feed to estimate this one, so the price stands on its own.",
       nextQuestion:
-        "The figures and the articles further down are what there is. They are worth reading before anything else.",
+        "The figures and the articles further down are what there is to go on.",
     };
   }
   const low = Math.min(...prices);
@@ -1414,7 +1414,7 @@ export function valueGlance(read: FairValueRead): ValueGlance {
       high,
       read: `Today's price is above every estimate below. The highest is ${currency(high, 2)}${from(high)}.`,
       nextQuestion:
-        "So the price is a bet that this company does better than the figures below currently suggest. What has to go right is the thing to read next.",
+        "So the price bets on this company beating the figures below. What has to go right is the question.",
     };
   }
   if (spot < low) {
@@ -1424,7 +1424,7 @@ export function valueGlance(read: FairValueRead): ValueGlance {
       high,
       read: `Today's price is below every estimate below. The lowest is ${currency(low, 2)}${from(low)}.`,
       nextQuestion:
-        "Either the market knows something these figures do not, or it has not caught up. The case against, further down, is where to look for the first.",
+        "Either the market knows something these figures do not, or it has not caught up. The case against, further down, is where to look.",
     };
   }
   /*
@@ -1446,8 +1446,8 @@ export function valueGlance(read: FairValueRead): ValueGlance {
       ? `The methods below disagree by a factor of ${(high / low).toFixed(1)}, from ${currency(low, 2)}${from(low)} to ${currency(high, 2)}${from(high)}, and today's price is somewhere in the middle of that.`
       : `Today's price sits inside the range these methods produce, ${currency(low, 2)} to ${currency(high, 2)}.`,
     nextQuestion: wide
-      ? "A range that wide is not a valuation, it is a disagreement, and being inside it settles nothing. The methods are listed below with the assumption each rests on, and the one you find least believable is the one to start with."
-      : "So nothing here is obviously mispriced, and which end of that range you believe is the whole question. The assumptions behind each method are listed with it.",
+      ? "A range that wide is a disagreement, so being inside it settles nothing. The least believable method below is the place to start."
+      : "Nothing here is obviously mispriced. Which end of the range you believe is the whole question.",
   };
 }
 

@@ -77,8 +77,8 @@ export function FundInside({
         }
         subtitle={
           facts.fundCategory
-            ? `A ${facts.fundCategory.toLowerCase()} fund${facts.fundFamily ? ` run by ${facts.fundFamily}` : ""}. Buying it buys a slice of everything below.`
-            : "Buying this buys a slice of everything below, in these proportions."
+            ? `A ${facts.fundCategory.toLowerCase()} fund${facts.fundFamily ? ` run by ${facts.fundFamily}` : ""}. One share is a slice of everything below.`
+            : "One share is a slice of everything below."
         }
         icon={<PieChart className="h-4 w-4" />}
       />
@@ -131,9 +131,8 @@ export function FundInside({
         <div className={cn(CARD, NESTED_PAD)}>
           <p className="text-sm leading-relaxed text-foreground">{sentence}</p>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            That is not a reason to do anything either way. Owning the same
-            companies twice is fine when it is on purpose, and this is only
-            the way to find out whether it is.
+            Not a reason to act either way. Owning a company twice is fine when
+            it is on purpose.
           </p>
         </div>
       )}

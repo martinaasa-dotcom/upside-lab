@@ -109,7 +109,7 @@ export function PositionFitCard({
             />
           </span>
         }
-        subtitle="Nobody can say whether a company is a good one. What is not an opinion is what your money becomes if you put it in. Nothing is bought."
+        subtitle="Arithmetic, not an opinion. Nothing is bought."
         icon={<Calculator className="h-4 w-4" />}
       />
 
@@ -140,7 +140,7 @@ export function PositionFitCard({
           <p className="text-sm leading-relaxed text-muted-foreground">
             At today&apos;s price that is about {shares} shares of {tag}
             {listingCode && listingCode !== code
-              ? `, whose price is quoted in ${listingCode} rather than ${code}, so the share count is a rough one`
+              ? `, roughly, since it is quoted in ${listingCode}`
               : ""}
             .
           </p>
@@ -153,15 +153,15 @@ export function PositionFitCard({
           value={percent(fit.weight, 1)}
           sub={
             fit.weightBefore !== null
-              ? `of everything you own, up from ${percent(fit.weightBefore, 1)} today. It would be your ${ordinal(fit.rank)} biggest holding of ${fit.holdingCount}.`
-              : `of everything you own, and it would arrive as your ${ordinal(fit.rank)} biggest holding of ${fit.holdingCount}.`
+              ? `of everything you own, up from ${percent(fit.weightBefore, 1)}. Your ${ordinal(fit.rank)} biggest holding of ${fit.holdingCount}.`
+              : `of everything you own, your ${ordinal(fit.rank)} biggest holding of ${fit.holdingCount}.`
           }
         />
         <Score
           label={`If it fell ${percent(SHOCK_FALL, 0)}`}
           value={`-${currency(fit.shockDollar, 0, code)}`}
           valueClassName="text-loss"
-          sub={`That is ${percent(fit.shockOfPortfolio, 1)} of your whole portfolio, assuming everything else stood still. A quarter off one company in a year is ordinary, not a disaster scenario.`}
+          sub={`${percent(fit.shockOfPortfolio, 1)} of your whole portfolio, if nothing else moved. A fall that size in a year is ordinary.`}
         />
         {sectorMoved ? (
           /*
@@ -174,19 +174,19 @@ export function PositionFitCard({
           <Score
             label="Companies like it would be"
             value={percent(fit.sectorAfter ?? 0, 0)}
-            sub={`of your stocks, up from ${percent(fit.sectorBefore ?? 0, 0)}. That counts every company you own in the same group as this one, ${lowerFirst(fit.sector ?? "")}, and a group tends to have its good and bad years together.`}
+            sub={`of your stocks, up from ${percent(fit.sectorBefore ?? 0, 0)}, counting its whole group (${lowerFirst(fit.sector ?? "")}). A group tends to move together.`}
           />
         ) : (
           <Score
             label="Your biggest three"
             value={percent(fit.topThreeAfter, 0)}
-            sub={`of your stocks, against ${percent(fit.topThreeBefore, 0)} today. The lower this is, the less any single company decides how your year goes.`}
+            sub={`of your stocks, against ${percent(fit.topThreeBefore, 0)} today. Lower means no one company decides your year.`}
           />
         )}
         <Score
           label="Your portfolio would be"
           value={currency(fit.portfolioAfter, 0, code)}
-          sub={`up from ${currency(fit.portfolioBefore, 0, code)}, treating the amount above as new money going in rather than a sale of something else.`}
+          sub={`up from ${currency(fit.portfolioBefore, 0, code)}, counting the amount above as new money.`}
         />
       </Scoreboard>
 
@@ -194,9 +194,8 @@ export function PositionFitCard({
         <Card tone="default" className={cn("flex flex-col gap-2")}>
           <p className="text-sm leading-relaxed text-warning">{note}</p>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            That is an observation about size, not a reason to do or not do
-            anything. Plenty of people hold one company at that weight on
-            purpose, and they know they are doing it.
+            An observation about size, not a reason to act. Plenty of people
+            hold one company at that weight on purpose.
           </p>
         </Card>
       )}

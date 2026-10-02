@@ -58,7 +58,7 @@ export function CompanySources({
     <Panel>
       <PanelHeader
         title="Sources"
-        subtitle="Nothing here should be taken on trust. This is where it all came from."
+        subtitle="Where every figure and point came from."
         icon={<Library className="h-4 w-4" />}
       />
 
@@ -101,15 +101,13 @@ export function CompanySources({
             ))}
           </ul>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Not checked or vouched for by this app. The publisher and the date
-            are there to judge each one by.
+            Not vouched for by this app. Judge each by its publisher and date.
           </p>
         </div>
       ) : (
         <p className="text-sm leading-relaxed text-muted-foreground">
-          No articles came back for this company, so the reading above rests
-          on the figures and the company&apos;s own description alone. That
-          makes it thinner than usual, not wrong.
+          No articles came back, so the page rests on the figures and the
+          company&apos;s own description. Thinner than usual, not wrong.
         </p>
       )}
 

@@ -238,9 +238,8 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
       {page.thin && (
         <Panel tone="warn">
           <p className="text-sm leading-relaxed text-foreground">
-            The feed carries very little about this one. What is below is
-            everything it had, and the parts that are missing are shown as{" "}
-            {NO_VALUE} rather than filled in with anything.
+            The feed has little on this one. Anything missing shows as{" "}
+            {NO_VALUE}, never a guess.
           </p>
         </Panel>
       )}
@@ -273,12 +272,9 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
       {isCryptoLike(facts) && (
         <Panel tone="warn">
           <p className="text-sm leading-relaxed text-foreground">
-            There is no company behind this one. It files no accounts,
-            earns no revenue and owns nothing, so most of what this page
-            does for a company cannot be done here: there is nothing to
-            value it against except what somebody else will pay. The price
-            and the range below are real; everything else on a company page
-            would be invented.
+            No company stands behind this one. It files no accounts, earns
+            nothing and owns nothing, so its only yardstick is what somebody
+            else will pay. The price and range below are real.
           </p>
         </Panel>
       )}
@@ -352,7 +348,6 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
         <Panel>
           <PanelHeader
             title={`Questions people ask about ${ticker}`}
-            subtitle="Each is answered by a panel above. Open one for the same answer in a paragraph."
             icon={<HelpCircle className="h-4 w-4" />}
           />
           {/*
@@ -462,9 +457,8 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
       </Panel>
 
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Every number above came from a public feed and can be checked at the
-        links in Sources. {name} did not write this page and has nothing to
-        do with it. {ADVICE_DISCLAIMER_SHORT}
+        Every number comes from a public feed, linked in Sources. {name} did
+        not write this page. {ADVICE_DISCLAIMER_SHORT}
       </p>
     </ResearchChrome>
   );
