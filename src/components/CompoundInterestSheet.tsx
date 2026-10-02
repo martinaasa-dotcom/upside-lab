@@ -634,7 +634,7 @@ function ComparePathsChart({
       </ul>
       {hoverIdx != null && (
         <div
-          className="pointer-events-none absolute top-2 max-w-[min(16rem,calc(100%-0.75rem))] rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-lg backdrop-blur"
+          className="pointer-events-none absolute top-2 max-w-[min(16rem,calc(100%-0.75rem))] rounded-lg border border-border bg-muted/95 px-2.5 py-1.5 text-sm shadow-sm"
           style={{
             left: `${Math.min(
               82,

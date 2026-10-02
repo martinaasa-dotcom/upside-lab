@@ -98,7 +98,7 @@ export function SheetPicker({ sheets, value, onChange, onAdd }: Props) {
             data-sheet-picker={menuId}
             role="menu"
             aria-label="Portfolios"
-            className="fixed z-[80] max-h-[min(24rem,70vh)] min-w-[13.5rem] overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-sm"
+            className="fixed z-[80] max-h-[min(24rem,70vh)] min-w-[13.5rem] overflow-y-auto rounded-lg border border-border glass-overlay py-1 shadow-md ring-1 ring-foreground/20 animate-in fade-in-0 zoom-in-95 duration-100 motion-reduce:animate-none"
             style={{ top: pos.top, left: pos.left }}
           >
             <PickerRow

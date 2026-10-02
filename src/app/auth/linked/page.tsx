@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { HeaderBrand } from "@/components/HeaderBrand";
+import { MessageLine, MessageScreen } from "@/components/MessageScreen";
 import { Button } from "@/components/ui/button";
 import { readEmail } from "@/lib/auth/email-address";
 import { PRODUCT_NAME, PRODUCT_SUPPORT_EMAIL } from "@/lib/product";
@@ -50,42 +50,20 @@ export default async function AddressLinkedPage({
   const failed = problem ? (PROBLEMS[problem] ?? PROBLEMS["link-failed"]!) : null;
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <header className="border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <HeaderBrand />
-          {/*
-            Not "Back". A reader arrives here from their mail app, so there
-            is nowhere behind them to go, and on the linked page the main
-            button below already says the same thing this one links to.
-          */}
-          <Button asChild variant="outline" size="sm">
-            <Link href="/">Open {PRODUCT_NAME}</Link>
-          </Button>
-        </div>
-      </header>
-
-      <main
-        id="main"
-        className="surface-gutter mx-auto flex min-w-0 max-w-lg flex-col gap-4 py-16 text-sm leading-relaxed"
-      >
-        <h1 className="text-2xl font-semibold">
-          {failed ? "That link did not work" : "That address is connected"}
-        </h1>
-
-        <p className="text-muted-foreground">
-          {failed ??
-            (address
-              ? `${address} now opens your ${PRODUCT_NAME} account. Sign in with either address and you land in the same place, with the same portfolios and the same circles.`
-              : `It now opens your ${PRODUCT_NAME} account. Sign in with either address and you land in the same place, with the same portfolios and the same circles.`)}
-        </p>
-
-        <div className="mt-2">
-          <Button asChild>
-            <Link href="/">Open {PRODUCT_NAME}</Link>
-          </Button>
-        </div>
-      </main>
-    </div>
+    <MessageScreen
+      title={failed ? "That link did not work" : "That address is connected"}
+      actions={
+        <Button asChild>
+          <Link href="/">Open {PRODUCT_NAME}</Link>
+        </Button>
+      }
+    >
+      <MessageLine>
+        {failed ??
+          (address
+            ? `${address} now opens your ${PRODUCT_NAME} account. Either address lands you in the same portfolios and circles.`
+            : `It now opens your ${PRODUCT_NAME} account. Either address lands you in the same portfolios and circles.`)}
+      </MessageLine>
+    </MessageScreen>
   );
 }

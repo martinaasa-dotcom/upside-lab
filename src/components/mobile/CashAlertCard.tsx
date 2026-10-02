@@ -147,21 +147,18 @@ function MarginSheet({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
       <div
         className={cn(
-          "scroll-host glass-overlay relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl modal-pad ring-1 sm:rounded-xl",
+          "scroll-host glass-overlay modal-in relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl modal-pad ring-1 sm:rounded-xl",
           TONE_RING[tone]
         )}
       >
         <div className="flex items-start justify-between gap-3">
-          <h3
-            id="margin-sheet-title"
-            className="text-base font-semibold text-foreground"
-          >
+          <h2 id="margin-sheet-title" className="text-foreground">
             {alert.title}
             {alert.term ? (
               <>
@@ -169,7 +166,7 @@ function MarginSheet({
                 <Explain term={alert.term} {...(alert.explain ?? {})} />
               </>
             ) : null}
-          </h3>
+          </h2>
           <Button
             type="button"
             variant="ghost"

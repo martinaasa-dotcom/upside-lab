@@ -695,12 +695,12 @@ export function CommunitiesList() {
         >
           <button
             type="button"
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
             aria-label="Close"
             onClick={() => setJoinPick(null)}
           />
           <div
-            className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover p-6 ring-1 ring-foreground/20 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6"
+            className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl glass-overlay modal-in modal-pad ring-1 ring-foreground/20 sm:max-w-md sm:rounded-xl"
           >
             <h3
               id="join-share-title"

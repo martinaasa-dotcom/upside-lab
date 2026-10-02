@@ -63,9 +63,8 @@ export default function GlobalError({
               color: "#a1a1a1",
             }}
           >
-            Your portfolios are safe and nothing you own has changed. The app
-            itself did not finish loading. Reload the page and it should come
-            back.
+            Your portfolios are safe and nothing you own has changed. Reload
+            the page and it should come back.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>

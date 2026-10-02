@@ -62,13 +62,13 @@ export function RenameSheetModal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
       <form
         onSubmit={submit}
-        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-xl bg-popover p-6 ring-1 ring-foreground/20"
+        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-xl glass-overlay modal-in modal-pad ring-1 ring-foreground/20"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="font-semibold text-foreground">{title}</h2>

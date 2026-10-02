@@ -388,3 +388,51 @@
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------
+ * A DIALOG ARRIVES THE WAY THE BUILT-IN ONES DO.
+ *
+ * The shadcn dialog, sheet and popover fade and settle in; the dialogs this
+ * app draws by hand (`ViewportOverlay`: add holding, cash, CSV, invite,
+ * feedback and the rest) used to appear in one frame on a flat fill. They
+ * share the material now (`glass-overlay`) and this entrance: on a phone a
+ * sheet rises from the bottom edge it is anchored to, from `sm` up it
+ * settles in where it is centred, and the scrim behind fades rather than
+ * cutting in. Transform and opacity only, and gone under reduced motion.
+ * ------------------------------------------------------------------- */
+@keyframes modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+@keyframes modal-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+.modal-in {
+  animation: modal-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (min-width: 640px) {
+  .modal-in {
+    animation-name: modal-settle;
+    animation-duration: 0.24s;
+  }
+}
+.scrim-in {
+  animation: scrim-in 0.2s ease-out backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-in,
+  .scrim-in {
+    animation: none;
+  }
+}
+

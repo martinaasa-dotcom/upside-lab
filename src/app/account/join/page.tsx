@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SignInGate } from "@/components/SignInGate";
 import { JOIN_SHEET_INVITE } from "@/lib/invite-landing";
-import { UpsideLogo } from "@/components/UpsideLogo";
+import { MessageLine, MessageScreen } from "@/components/MessageScreen";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
@@ -60,36 +60,33 @@ function JoinInner() {
 
   return (
     <SignInGate invite={JOIN_SHEET_INVITE}>
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6 text-foreground">
-        <UpsideLogo variant="icon" className="mb-2" />
-        <div className="flex flex-col w-full max-w-sm gap-4 text-center">
-          <h1 className="text-2xl font-semibold">Join a portfolio</h1>
-          <p className="text-sm text-muted-foreground">
-            Your partner invited you to edit this portfolio together. Paste the
-            code if the link did not fill it in.
-          </p>
-          {(!code || error) && (
-            <form
-              className="flex flex-col gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (manual.trim()) void accept(manual.trim());
-              }}
-            >
-              <Input
-                value={manual}
-                onChange={(e) => setManual(e.target.value)}
-                placeholder="Paste invite code"
-              />
-              <Button type="submit" className="w-full">
-                Join portfolio
-              </Button>
-            </form>
-          )}
-          {status && <p className="text-sm text-muted-foreground">{status}</p>}
-          {error && <p className="text-sm text-loss">{error}</p>}
-        </div>
-      </div>
+      <MessageScreen title="Join a portfolio">
+        <MessageLine>
+          Your partner invited you to edit this portfolio together. Paste the
+          code if the link did not fill it in.
+        </MessageLine>
+        {(!code || error) && (
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (manual.trim()) void accept(manual.trim());
+            }}
+          >
+            <Input
+              value={manual}
+              onChange={(e) => setManual(e.target.value)}
+              placeholder="Paste invite code"
+              aria-label="Invite code"
+            />
+            <Button type="submit" className="w-full">
+              Join portfolio
+            </Button>
+          </form>
+        )}
+        {status && <MessageLine>{status}</MessageLine>}
+        {error && <MessageLine tone="loss">{error}</MessageLine>}
+      </MessageScreen>
     </SignInGate>
   );
 }
@@ -98,9 +95,9 @@ export default function AccountJoinPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-dvh items-center justify-center bg-background text-muted-foreground">
-          Loading …
-        </div>
+        <MessageScreen title="Join a portfolio">
+          <MessageLine>Opening your invite …</MessageLine>
+        </MessageScreen>
       }
     >
       <JoinInner />

@@ -1295,14 +1295,14 @@ export function AccountPage() {
         >
           <button
             type="button"
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
             aria-label="Close"
             onClick={() => !deleting && setDeleteOpen(false)}
           />
-          <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-destructive/30 modal-pad sm:max-w-md sm:rounded-xl">
-            <h3 id={deleteTitleId} className="text-base font-semibold text-loss">
+          <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl glass-overlay modal-in ring-1 ring-destructive/30 modal-pad sm:max-w-md sm:rounded-xl">
+            <h2 id={deleteTitleId} className="text-loss">
               Delete your account?
-            </h3>
+            </h2>
             {/*
               A LIST OF WHAT GOES, BUILT FROM WHAT IS THERE.
 

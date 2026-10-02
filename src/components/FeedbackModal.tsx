@@ -288,12 +288,12 @@ export function FeedbackModal({ mode, onClose, onSent }: Props) {
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
         disabled={busy}
       />
-      <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-t-xl bg-popover modal-pad ring-1 ring-foreground/20 sm:max-w-lg sm:rounded-xl">
+      <div className="relative flex max-h-full w-full flex-col overflow-hidden rounded-t-xl glass-overlay modal-in modal-pad ring-1 ring-foreground/20 sm:max-w-lg sm:rounded-xl">
         <div className="mb-3 flex shrink-0 items-start justify-between gap-3">
           <h3
             id="feedback-title"

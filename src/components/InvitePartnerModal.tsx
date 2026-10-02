@@ -151,11 +151,11 @@ export function InvitePartnerModal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:max-w-md sm:rounded-xl">
+      <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl glass-overlay modal-in ring-1 ring-foreground/20 modal-pad sm:max-w-md sm:rounded-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold text-foreground">

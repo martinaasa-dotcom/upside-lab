@@ -253,7 +253,7 @@ export function WelcomeTour({
 
   return (
     <ViewportOverlay
-      className="z-[200] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4"
+      className="scrim-in z-[200] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4"
       ariaLabelledBy={HEADING_ID}
       /*
         Escape leaves, and leaving is the same as finishing: whatever was
@@ -280,7 +280,7 @@ export function WelcomeTour({
         rather than a cap, so stepping from a long screen to a short one
         does not make the frame jump under the reader's thumb.
       */}
-      <div className="glass-overlay modal-pad flex h-[min(100%,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl ring-1 ring-foreground/20">
+      <div className="glass-overlay modal-in modal-pad flex h-[min(100%,44rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl ring-1 ring-foreground/20">
         {/*
           Progress, and the way out, on one line. Segments rather than
           labels: six labels do not fit a phone. The step's own name sits

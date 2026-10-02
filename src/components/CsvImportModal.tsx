@@ -170,11 +170,11 @@ export function CsvImportModal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={handleClose}
       />
-      <div className="relative z-10 flex max-h-[min(100%,640px)] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-popover ring-1 ring-foreground/20">
+      <div className="relative z-10 flex max-h-[min(100%,640px)] w-full max-w-lg flex-col overflow-hidden rounded-xl glass-overlay modal-in ring-1 ring-foreground/20">
         <div className="flex items-center justify-between border-b border-border surface-gutter py-4">
           <div className="flex items-center gap-2">
             <FileUp className="h-4 w-4 text-primary" />
