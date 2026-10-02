@@ -31,7 +31,7 @@
 import { Field, FIELD_GRID, currencyCodeFor } from "@/components/retirement/fields";
 import { FormattedNumberInput } from "@/components/FormattedNumberInput";
 import { Button } from "@/components/ui/button";
-import { CARD, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
+import { CARD, InfoTip, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { barFillPct, cn, currency } from "@/lib/format";
 import type { PlanResult, RetirementInputs } from "@/lib/retirement/plan";
 import { regionById } from "@/lib/retirement/regions";
@@ -51,7 +51,7 @@ import {
   type LessonContext,
   type StoredPay,
 } from "@/lib/retirement/savings-rate";
-import { Scale } from "lucide-react";
+import { ChevronDown, Scale } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";
 
 /** The tallest bar on the chart, in years. Anything longer is drawn to the top. */
@@ -111,14 +111,14 @@ export function SavingsRatePanel({
       <PanelHeader
         icon={<Scale className="h-4 w-4" />}
         title="How much of your pay you keep"
-        subtitle="The share you keep decides when you could stop, more than what you earn does. Pension counts as kept."
+        subtitle="Pension included, this decides when you could stop."
       />
 
       <div className={FIELD_GRID}>
         <Field
           label="Take-home pay a month"
           htmlFor={takeHomeId}
-          note="After tax, what reaches your bank account."
+          note="After tax."
         >
           <FormattedNumberInput
             id={takeHomeId}
@@ -132,7 +132,7 @@ export function SavingsRatePanel({
         <Field
           label="Into a pension a month"
           htmlFor={pensionId}
-          note="Yours and your employer's, taken from pay before it reaches you."
+          note="Yours and your employer's, before take-home."
         >
           <FormattedNumberInput
             id={pensionId}
@@ -159,8 +159,7 @@ export function SavingsRatePanel({
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            Add what you take home to see how much of it you keep, and what
-            that does to the age you could stop.
+            Add what you take home to see what you keep.
           </p>
           <HabitBlock
             lesson={null}
@@ -271,7 +270,7 @@ function Lesson({
               a month, less than your pension alone.
             </p>
             <Button type="button" variant="outline" size="sm" onClick={onUsePension}>
-              Count {money(split.pension)} a month in the plan
+              Use {money(split.pension)} instead
             </Button>
           </div>
         ) : null}
@@ -280,7 +279,7 @@ function Lesson({
       {/* THE WAIT AT EVERY SHARE KEPT. */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <MicroLabel>Years until your savings alone pay for your life</MicroLabel>
+          <MicroLabel>Years until savings alone cover your life</MicroLabel>
           <p className="text-sm text-muted-foreground">
             {years == null ? (
               <>At {ratePct}% it would take more than a hundred years.</>
@@ -319,11 +318,12 @@ function Lesson({
           </p>
         ) : null}
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Living as you do now, with no pension counted: the day your savings
-          reach {Math.round(multiple)} times a year of your spending, enough
-          to draw {swrPct.toFixed(1)}% a year, growing{" "}
-          {realReturnPct.toFixed(1)}% a year after inflation. The answer above
-          also counts pensions and a retirement budget, so it can differ.
+          No pension counted, so it can differ from the answer.{" "}
+          <InfoTip
+            text={`Living as you do now, the day your savings reach ${Math.round(multiple)} times a year of your spending, enough to draw ${swrPct.toFixed(1)}% a year, growing ${realReturnPct.toFixed(1)}% a year after inflation. The answer also counts pensions and a retirement budget.`}
+          >
+            How it is worked out
+          </InfoTip>
         </p>
       </div>
 
@@ -482,13 +482,11 @@ function LeverBlock({
         })}
       </ul>
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Spending less works twice: more goes in, and there is less for the pot
-        to pay for later. Earning more only helps the part that is kept, and
-        spent in full it moves the day further away.
+        Spending less works twice: more goes in, and the pot has less to pay for.
         {ratio != null && ratio > 1.05 ? (
           <>
             {" "}
-            Here, spending less is{" "}
+            Here it is{" "}
             <span className="font-medium text-foreground">{ratio.toFixed(1)} times</span> as
             strong.
           </>
@@ -530,65 +528,81 @@ function HabitBlock({
     lesson,
   });
   const word = HABIT_PERIODS[habit.period].word;
-  const cents = amount < 100 && Math.round(amount) !== amount;
+  /*
+    Folded by default. It is the last of four pictures in a panel that
+    already makes the same point with the reader's own pay, so it waits one
+    press away rather than adding a fourth block to every visit.
+  */
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-3">
-      <MicroLabel>Small things, every day</MicroLabel>
-      <div className="flex flex-wrap gap-2">
-        {HABITS.map((h) => (
-          <Button
-            key={h.id}
-            type="button"
-            variant={h.id === habit.id ? "default" : "outline"}
-            size="sm"
-            aria-pressed={h.id === habit.id}
-            onClick={() => setHabitId(h.id)}
-          >
-            {h.label}
-          </Button>
-        ))}
-      </div>
-      <Field label={`${habit.label}, ${word}`} htmlFor={amountId} className="max-w-[14rem]">
-        <FormattedNumberInput
-          id={amountId}
-          kind="money"
-          digits={2}
-          value={amount}
-          currency={code}
-          onChange={(n) => setAmounts((a) => ({ ...a, [habit.id]: n }))}
-          className="font-mono tabular-nums"
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground hover:text-muted-foreground"
+      >
+        Small things, every day
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 transition-transform motion-reduce:transition-none",
+            open && "rotate-180"
+          )}
+          aria-hidden
         />
-      </Field>
-      <div className={cn(CARD, "grid divide-y divide-border/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0")}>
-        <Cell label="A year" value={money(result.yearly)} />
-        <Cell
-          label={yearsToStop > 0 ? `Invested until ${stopAge}` : "Invested"}
-          value={yearsToStop > 0 ? money(result.invested) : money(result.yearly)}
-        />
-        <Cell label="Less your pot needs" value={money(result.targetLess)} />
-      </div>
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        {money(amount, cents ? 2 : 0)} {word} is {money(result.yearly)} a year.
-        {yearsToStop > 0 ? (
-          <>
-            {" "}
-            Put away instead, growing {realReturnPct.toFixed(1)}% a year after
-            inflation, it would come to about {money(result.invested)} by{" "}
-            {stopAge}.
-          </>
-        ) : null}{" "}
-        A cost that is gone for good is one the pot never has to pay for
-        either: at a {swrPct.toFixed(1)}% draw, that is {money(result.targetLess)}{" "}
-        less to have saved.
-        {result.sooner != null && result.sooner >= 1 / 12 ? (
-          <>
-            {" "}
-            On the picture above it brings the day forward by{" "}
-            <span className="font-medium text-foreground">{yearsSaid(result.sooner)}</span>.
-          </>
-        ) : null}
-      </p>
+      </button>
+      {open ? (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {HABITS.map((h) => (
+              <Button
+                key={h.id}
+                type="button"
+                variant={h.id === habit.id ? "default" : "outline"}
+                size="sm"
+                aria-pressed={h.id === habit.id}
+                onClick={() => setHabitId(h.id)}
+              >
+                {h.label}
+              </Button>
+            ))}
+          </div>
+          <Field label={`${habit.label}, ${word}`} htmlFor={amountId} className="max-w-[14rem]">
+            <FormattedNumberInput
+              id={amountId}
+              kind="money"
+              digits={2}
+              value={amount}
+              currency={code}
+              onChange={(n) => setAmounts((a) => ({ ...a, [habit.id]: n }))}
+              className="font-mono tabular-nums"
+            />
+          </Field>
+          <div className={cn(CARD, "grid divide-y divide-border/60 sm:grid-cols-3 sm:divide-x sm:divide-y-0")}>
+            <Cell label="A year" value={money(result.yearly)} />
+            <Cell
+              label={yearsToStop > 0 ? `Invested until ${stopAge}` : "Invested"}
+              value={yearsToStop > 0 ? money(result.invested) : money(result.yearly)}
+            />
+            <Cell label="Less your pot needs" value={money(result.targetLess)} />
+          </div>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {yearsToStop > 0 ? (
+              <>Invested at {realReturnPct.toFixed(1)}% a year after inflation. </>
+            ) : null}
+            Gone for good, it also shrinks the pot you need, at a{" "}
+            {swrPct.toFixed(1)}% draw.
+            {result.sooner != null && result.sooner >= 1 / 12 ? (
+              <>
+                {" "}
+                That brings the day forward by{" "}
+                <span className="font-medium text-foreground">{yearsSaid(result.sooner)}</span>.
+              </>
+            ) : null}
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -102,7 +102,7 @@ describe("the retirement room, as somebody new meets it", () => {
       page, so it stays behind `BelowFold`. Absent from this markup is the
       fold working.
     */
-    expect(body).not.toContain("What a bad year actually costs you");
+    expect(body).not.toContain("What a bad year costs");
   });
 
   it("folds the working behind one press", () => {
@@ -112,8 +112,7 @@ describe("the retirement room, as somebody new meets it", () => {
   });
 
   it("says out loud where the rest of it went, and what it currently is", () => {
-    expect(body).toContain("What else the plan counts");
-    expect(body).toContain("Tick anything to change it");
+    expect(body).toContain("Tap any part to change it");
     for (const label of ["Home", "Children", "Car", "Pensions and income", "Returns and mix"]) {
       expect(body).toContain(label);
     }
@@ -492,6 +491,7 @@ describe("the answer card, once the plan is in place", () => {
     expect(body).toContain("Stop at 71");
     expect(body).toContain("Not before 80");
     expect(body).not.toMatch(/long-run/);
-    expect(card([])).not.toContain("If your money grows slower");
+    expect(body).toContain("At other growth rates");
+    expect(card([])).not.toContain("At other growth rates");
   });
 });

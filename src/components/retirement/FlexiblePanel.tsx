@@ -181,8 +181,8 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
     <Panel>
       <PanelHeader
         icon={<Layers className="h-4 w-4" />}
-        title="What a bad year actually costs you"
-        subtitle="The bottom layers are paid whatever the market does. The top ones are what a bad year cuts."
+        title="What a bad year costs"
+        subtitle="A bad year cuts the top layers first."
       />
 
       {hasTwo ? (
@@ -265,22 +265,23 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
           this year
           {year.unspent > 1 ? (
             <>
-              , and leave{" "}
+              {" "}
+              and leave{" "}
               <span className="font-mono tabular-nums text-foreground">
                 {currency(year.unspent, 0, code)}
               </span>{" "}
-              invested rather than spending it
+              invested
             </>
           ) : null}
           .
           {guaranteed > 0 ? (
             <>
               {" "}
-              Of that,{" "}
+              Guaranteed income brings in{" "}
               <span className="font-mono tabular-nums text-foreground">
                 {currency(year.guaranteed, 0, code)}
-              </span>{" "}
-              arrives whatever the market did.
+              </span>
+              .
             </>
           ) : null}
         </p>
@@ -304,48 +305,45 @@ export function FlexiblePanel({ plan }: { plan: PlanResult }) {
                 <span className="font-mono tabular-nums">
                   {currency(pot, 0, code)}
                 </span>{" "}
-                you are projected to have at {stopAge}, against the{" "}
+                you are projected to have at {stopAge}, against{" "}
                 <span className="font-mono tabular-nums">
                   {currency(plan.required.target, 0, code)}
                 </span>{" "}
-                this plan needs by then.
+                needed.
               </>
             ) : (
-              <>
-                You are projected to have nothing invested by {stopAge}, so
-                everything above is guaranteed income.
-              </>
+              <>Nothing is invested by {stopAge}, so all of it is guaranteed income.</>
             )
           ) : pot > 0.5 ? (
             <>
               Drawn on the{" "}
               <span className="font-mono tabular-nums">{currency(pot, 0, code)}</span>{" "}
-              your plan leaves working for you for good
+              your plan keeps invested for good
               {earlyYears > 0.5 ? (
                 <>
-                  , after the{" "}
+                  , after{" "}
                   <span className="font-mono tabular-nums">
                     {currency(earlyYears, 0, code)}
                   </span>{" "}
-                  the early years take on top
+                  for the early years
                 </>
               ) : null}
               .
             </>
           ) : (
             <>
-              Your pot has nothing left for a year like this one
+              Your pot has nothing left for this year
               {earlyYears > 0.5 ? (
                 <>
                   {" "}
-                  once the{" "}
+                  once{" "}
                   <span className="font-mono tabular-nums">
                     {currency(earlyYears, 0, code)}
                   </span>{" "}
-                  the early years take is paid for
+                  goes on the early years
                 </>
               ) : null}
-              , so everything above it is guaranteed income.
+              , so all of it is guaranteed income.
             </>
           )}
         </p>

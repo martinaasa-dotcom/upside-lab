@@ -262,47 +262,50 @@ export function layersRead(input: {
   const first = input.which === "first";
   const alone =
     bridgeYears > 0
-      ? ", and until your pension starts the pot is paying for everything by itself"
+      ? ", and until your pension starts the pot pays for all of it"
       : "";
 
   if (current.essentialsShort) {
     return first
-      ? `At this return, even the bottom layer of your first year is not covered${alone}. That is the one situation a plan is built to avoid.`
-      : "At this return, even the bottom layer is not covered. That is the one situation a plan is built to avoid.";
+      ? `At this return, even the bottom layer of your first year is not covered${alone}.`
+      : "At this return, even the bottom layer is not covered: the one thing a plan exists to avoid.";
   }
 
   const thin = best.slices.filter((s) => s.fill < 0.995);
   if (thin.length > 0) {
-    const lowest = thin[0];
-    const names = thin.map((s) => s.tier.label.toLowerCase()).join(", ");
-    const when = first ? "your first year" : "this life";
-    return `Even a strong year leaves ${names} short of what ${when} costs, so what is missing there is the size of the plan rather than the market. ${lowest.tier.label} is the first layer it reaches.`;
+    const labels = thin.map((s) => s.tier.label.toLowerCase());
+    const names =
+      labels.length > 1
+        ? `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`
+        : labels[0];
+    const when = first ? "in your first year" : "for this life";
+    return `Even a strong year leaves ${names} short ${when}, so what is missing is the size of the plan rather than the market.`;
   }
 
   if (worst.essentialsShort) {
-    return "Down at the bottom of that slider the essentials themselves stop being covered, which is the one layer a plan cannot let the market reach.";
+    return "At the bottom of the slider, even the essentials stop being covered.";
   }
 
   const wholeBill = current.slices.reduce((sum, s) => sum + s.full, 0);
   if (wholeBill > 0 && current.guaranteed >= wholeBill) {
     const covered =
-      "Your guaranteed income covers the whole of this year on its own, which is why nothing on that slider reaches it.";
+      "Your guaranteed income covers the whole of this year on its own, so the slider cannot reach it.";
     if (bridgeYears <= 0) {
       return `${covered} What the pot adds is on top of a life already paid for.`;
     }
     const stretch =
       bridgeYears === 1 ? "the year" : `the ${bridgeYears} years`;
     return input.short
-      ? `${covered} This is the settled year, though, and what your plan is short of is ${stretch} before that income starts, which is the other picture here.`
-      : `${covered} This is the settled year, and the pot's real work is ${stretch} before that income starts, which is the other picture here.`;
+      ? `${covered} Your plan falls short in ${stretch} before that income starts, the other picture here.`
+      : `${covered} The pot's real work is ${stretch} before that income starts, the other picture here.`;
   }
 
   const essentials = current.slices[0];
   if (essentials != null && current.guaranteed >= essentials.full) {
-    return "Drag it anywhere: your guaranteed income alone covers the essentials, so the market decides how good a year you have, never whether you eat.";
+    return "Your guaranteed income covers the essentials, so the market only decides the extras.";
   }
 
-  return "The essentials hold at every setting on that slider. Everything above them is a choice you would get to make at the time.";
+  return "The essentials hold at every setting. The rest is a choice you make at the time.";
 }
 
 /**
@@ -316,9 +319,9 @@ export const MARKET_YEARS: ReadonlyArray<{
   label: string;
   returnPct: number;
 }> = [
-  { id: "bad", label: "Bad year", returnPct: -25 },
-  { id: "average", label: "Average year", returnPct: 5 },
-  { id: "good", label: "Good year", returnPct: 16 },
+  { id: "bad", label: "Bad", returnPct: -25 },
+  { id: "average", label: "Average", returnPct: 5 },
+  { id: "good", label: "Good", returnPct: 16 },
 ];
 
 /** The name for wherever the slider is, so the label is never blank. */

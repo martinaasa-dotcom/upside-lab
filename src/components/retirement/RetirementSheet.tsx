@@ -630,8 +630,7 @@ export function RetirementSheet({
             {workingOpen ? "Hide the working" : "Show the working"}
           </span>
           <span className="text-sm text-muted-foreground">
-            How long people live, what stopping at every age costs, and the
-            milestones on the way.
+            How long people live, every age compared, and milestones.
           </span>
         </span>
         <ChevronDown

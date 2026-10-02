@@ -49,9 +49,9 @@ describe("the retirement room's panel order", () => {
 
   it("keeps the spending layers ahead of the folded working", () => {
     expect(at("Fine-tune the plan")).toBeLessThan(
-      at("What a bad year actually costs you")
+      at("What a bad year costs")
     );
-    expect(at("What a bad year actually costs you")).toBeLessThan(
+    expect(at("What a bad year costs")).toBeLessThan(
       at("Show the working")
     );
   });

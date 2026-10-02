@@ -52,6 +52,6 @@ describe("what each chip says", () => {
     const early = { ...defaultInputs("GB"), retirementAge: 60, statePensionAge: 67, includeStatePension: true };
     expect(topicSummary("bridge", early, money, extra)).toBe("7 years before your pension");
     const late = { ...early, retirementAge: 67 };
-    expect(topicSummary("bridge", late, money, extra)).toBe("For a stretch with an end date");
+    expect(topicSummary("bridge", late, money, extra)).toBe("For a fixed stretch");
   });
 });
