@@ -185,7 +185,9 @@ describe("copy reads as a person wrote it", () => {
 
   it("paints the social card from product copy, never a hardcoded line", () => {
     const src = readFileSync("scripts/generate-pwa-icons.mjs", "utf8");
-    expect(src).toContain("${PRODUCT_HEADLINE[0]}");
+    // The first line is split so its last word can be set in gold, so the
+    // card reads it rather than interpolating it whole.
+    expect(src).toContain("PRODUCT_HEADLINE[0]");
     expect(src).toContain("${PRODUCT_HEADLINE[1]}");
     expect(src).toContain("${OG_CARD_LINE}");
     expect(src).not.toMatch(/[\u2014\u2013]/);

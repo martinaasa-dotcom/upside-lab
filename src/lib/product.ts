@@ -35,17 +35,18 @@ export const PRODUCT_ORIGIN = `https://${PRODUCT_DOMAIN}`;
  * falls you find out whether anything actually happened at the companies
  * you own. Pulse is how that gets answered. It is not the reason.
  *
- * This deliberately does not match the landing page's own headline, which
- * is "Everyone shows you the number. Nobody tells you what happened." Do
- * not "fix" the two to agree: they are read in different places. That one
- * is a hook with a whole page underneath it to make good on it. This one
- * is read cold, in a Slack paste or a browser tab, by somebody with
- * nothing else to go on, so it says what the product is rather than
- * setting up a question. The claim underneath both is the same.
+ * It was then "Your whole portfolio, in plain words. And when it falls,
+ * what actually changed." (until 2026-10-02), which sold the product on the
+ * falls. It is the landing's own headline now, because the landing stopped
+ * opening on a red day and became a promise rather than a question: "Every
+ * move, explained." reads as well cold, in a Slack paste or a browser tab,
+ * as it does over the picture that makes good on it, and the second line
+ * says what it covers. The social card draws the first line's last word in
+ * the brand gold, as the hero does.
  */
 export const PRODUCT_HEADLINE = [
-  "Your whole portfolio, in plain words.",
-  "And when it falls, what actually changed.",
+  "Every move, explained.",
+  "Plain English for everything you own.",
 ] as const;
 
 export const PRODUCT_SENTENCE = PRODUCT_HEADLINE.join(" ");
@@ -66,7 +67,7 @@ export const OG_CARD_LINE =
   falls, which the landing stopped doing on 2026-10-02.
 */
 export const PRODUCT_BLURB =
-  "Every move in your portfolio, explained in plain English: the whole market, or news at the company itself.";
+  "Every day it reads the companies you own and says what moved each one: the whole market, or news of its own.";
 
 /** Name used when a first-run import creates the sheet for you. */
 export const FIRST_SHEET_NAME = "My portfolio";
