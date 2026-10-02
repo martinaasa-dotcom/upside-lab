@@ -736,13 +736,8 @@ const COMPARE_ROWS: readonly {
   ours: boolean;
 }[] = [
   {
-    what: "Why each company moved today",
-    cells: ["Rarely", "Rarely", "Every company, every day"],
-    ours: true,
-  },
-  {
     what: "The market, or the company's own news",
-    cells: ["Not said", "Not said", "One line each"],
+    cells: ["Not said", "Not said", "Every company, every day"],
     ours: true,
   },
   {
