@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/popover";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { filledCardColumns, filledGridColumns } from "@/lib/filled-grid";
+import { hapticTick } from "@/lib/haptic";
 import { cn, signedPercent, splitMoveTint } from "@/lib/format";
 import {
   ChevronRight,
@@ -1262,7 +1263,9 @@ export function Segmented<T extends string>({
         type="single"
         value={value ?? undefined}
         onValueChange={(next) => {
-          if (next) onChange(next as T);
+          if (!next) return;
+          hapticTick();
+          onChange(next as T);
         }}
         spacing={0}
         disabled={disabled}
@@ -1340,7 +1343,10 @@ export function Segmented<T extends string>({
             data-on={on ? "" : undefined}
             disabled={disabled}
             title={o.title}
-            onClick={() => onChange(o.id)}
+            onClick={() => {
+              if (o.id !== value) hapticTick();
+              onChange(o.id);
+            }}
             className={cn(
               "seg-cell flex min-w-0 items-center justify-center px-2 text-sm font-medium disabled:opacity-40",
               buttons

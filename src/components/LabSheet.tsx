@@ -1,6 +1,7 @@
 "use client";
 
 import { SlideThumb } from "@/components/ui/SlideThumb";
+import { hapticTick } from "@/lib/haptic";
 import { CountUp } from "@/components/ui/CountUp";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { forecastThemeForTicker } from "@/lib/forecast-growth";
@@ -216,7 +217,10 @@ function LabTabRow({
           role="tab"
           aria-selected={active === t.id}
           data-on={active === t.id ? "" : undefined}
-          onClick={() => onSelect(t.id)}
+          onClick={() => {
+            if (t.id !== active) hapticTick();
+            onSelect(t.id);
+          }}
           className={cn(
             "seg-cell shrink-0 rounded-md px-3 py-1.5 text-sm font-medium touch-target",
             active === t.id

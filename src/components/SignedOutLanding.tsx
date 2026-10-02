@@ -34,6 +34,7 @@ import {
   Users,
 } from "lucide-react";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
+import { hapticTick } from "@/lib/haptic";
 import {
   BROKER_ANSWER,
   FUND_X_HANDLE,
@@ -1250,13 +1251,16 @@ function RedDayBoard({ onLookAround }: { onLookAround?: () => void }) {
               <button
                 type="button"
                 aria-pressed={turned}
-                onClick={() =>
+                onClick={() => {
+                  /* A phone that can, taps back: once for a tile, twice
+                     for the one with news. */
+                  if (!turned) hapticTick(news ? [10, 60, 14] : 8);
                   setOpen((prev) =>
                     prev.includes(h.ticker)
                       ? prev.filter((t) => t !== h.ticker)
                       : [...prev, h.ticker]
-                  )
-                }
+                  );
+                }}
                 onPointerEnter={(e) => {
                   if (e.pointerType === "mouse") setPointing(h.ticker);
                 }}
