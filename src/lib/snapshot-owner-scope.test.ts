@@ -25,12 +25,9 @@ type Row = { id: string; created_at: string; owner_id: string | null };
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-09-02T00:00:00.000Z");
 
-/*
-  The rows are dated against NOW and the prune ages them against the clock,
-  so the clock is pinned to NOW. Left to run, the pre_delete rows passed
-  their 30 day window on 2 October 2026 and "deletes nothing" began
-  deleting them, which was the test going stale rather than the code.
-*/
+// The prune reads the real clock, so the fixture's rows have to be dated
+// against the same moment it reads, or a month later every one of them has
+// aged out of the window and the "nothing to delete" case deletes them.
 beforeAll(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);

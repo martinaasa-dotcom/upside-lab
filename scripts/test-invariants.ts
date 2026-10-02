@@ -3587,9 +3587,12 @@ run("Worth noticing names the two groups in plain English", () => {
   assert.doesNotMatch(line, /If you didn't mean to take that bet/);
 
   const friday = buildBookInsights(holdings, "friday").rotation ?? "";
-  // The line names the last session by its weekday, which is Friday only
-  // on a weekend or a Monday, so the expectation reads the same clock.
-  assert.match(friday, new RegExp(`on ${lastSessionName()}`));
+  // The "friday" wording names the last finished session, read off the
+  // clock: Friday at a weekend, Thursday on a Friday afternoon.
+  assert.ok(
+    friday.includes(`on ${lastSessionName()}`),
+    `expected "on ${lastSessionName()}" in: ${friday}`
+  );
   assert.doesNotMatch(friday, /today/);
   const week = buildBookInsights(holdings, "this week").rotation ?? "";
   assert.match(week, /this week/);
