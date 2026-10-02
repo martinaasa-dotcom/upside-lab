@@ -133,7 +133,7 @@ const BENCHMARK_SHORT = "The S&P 500 tracker";
 /** Mid-sentence form. */
 const BENCHMARK_MID = "the S&P 500 tracker";
 const BENCHMARK_NOTE =
-  "SPY is one fund that holds the five hundred largest US companies. It is the line this fund sets out to beat, and where its waiting money sits.";
+  "SPY holds the 500 largest US companies. It is the line this fund sets out to beat, and where its waiting money sits.";
 
 const BENCHMARK_STORAGE_KEY = "portfell-upside-portfolio-benchmark";
 const FEED_CHUNK = 7;
@@ -988,9 +988,9 @@ export function WhatThisIs({
         }
       />
       <p className="text-base leading-relaxed text-foreground/85">
-        A pretend $100,000 that sets out to beat the S&P 500. Written rules
-        trade it on each day the market is open, and every trade is written
-        down with the numbers behind it. Nothing is edited afterwards.
+        A pretend $100,000 out to beat the S&P 500. Written rules trade it
+        on each day the market is open, and every trade is logged with its
+        numbers. Nothing is edited afterwards.
       </p>
       {/*
         One ruled list, not three boxed tiles: three boxes of one sentence
@@ -1295,7 +1295,7 @@ export function UpsidePortfolioPage() {
       if (mode !== "background" && !cachedRef.current) {
         setError(
           isNetworkError(e)
-            ? "You appear to be offline. The Fund will load as soon as the connection is back."
+            ? "You seem to be offline. The Fund loads once you are back."
             : e instanceof Error
               ? e.message
               : "Couldn't load the Fund."
@@ -2023,9 +2023,9 @@ export function UpsidePortfolioPage() {
               {coverage.unpriced.length > 0 && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {coverage.unpriced.length === 1
-                    ? `No price came back for ${cashtag(coverage.unpriced[0]!)} just now, so it is counted at what Margus paid for it rather than left out.`
-                    : `No price came back for ${coverage.unpriced.length} of these companies just now, so each is counted at what Margus paid for it rather than left out.`}{" "}
-                  Everything above leans on that until the prices return.
+                    ? `No price came back for ${cashtag(coverage.unpriced[0]!)} just now, so it counts at what Margus paid.`
+                    : `No price came back for ${coverage.unpriced.length} of these companies just now, so each counts at what Margus paid.`}{" "}
+                  The figures above lean on that until prices return.
                 </p>
               )}
 
@@ -2101,7 +2101,7 @@ export function UpsidePortfolioPage() {
                 >
                   X
                 </a>
-                , so the record is in two places rather than only this one.
+                , so the record lives in two places.
               </p>
             </Panel>
 
@@ -2109,7 +2109,7 @@ export function UpsidePortfolioPage() {
               <Panel>
                 <PanelHeader
                   title="Where the money sits"
-                  subtitle="Grouped by the kind of business, with the cash Margus has not spent."
+                  subtitle="By kind of business, plus the cash Margus has not spent."
                 />
                 <div>
                   <AllocationBar
@@ -2181,7 +2181,7 @@ export function UpsidePortfolioPage() {
                         label: (
                           <span className="inline-flex items-center gap-1.5">
                             How bumpy
-                            <InfoTip text="This is not a measurement of these companies. It is the fall this app assumes for a mix of these kinds of business in a bad stretch, from one figure kept per kind. Nobody knows what the real one would be." />
+                            <InfoTip text="Not a measurement of these companies. It is the fall this app assumes for this mix of businesses in a bad stretch, from one figure per kind. Nobody knows the real one." />
                           </span>
                         ),
                         value: fundPersonality.riskBand.label,
@@ -2327,9 +2327,8 @@ export function UpsidePortfolioPage() {
               <SectionHeading title="Every decision, in order" why />
               {reports.length === 0 ? (
                 <p className={cn("rounded-xl glass ring-1 ring-foreground/20 text-center text-sm leading-relaxed text-muted-foreground", PANEL_PAD)}>
-                  Nothing written down yet. The first decision is made after
-                  today&apos;s market close, and it will appear here with the
-                  reason behind it.
+                  Nothing written down yet. The first decision comes after
+                  today&apos;s close, with its reason.
                 </p>
               ) : (
                 /* Latest report in full. Older ones stay collapsed, and
