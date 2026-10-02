@@ -119,7 +119,7 @@ describe("tourStages", () => {
   });
 
   it("still shows the whole app to every one of them", () => {
-    const telling: Stage[] = ["day", "rules", "rooms"];
+    const telling: Stage[] = ["welcome", "promises"];
     for (const input of [
       both,
       { ...both, hasHoldings: true },
@@ -130,13 +130,19 @@ describe("tourStages", () => {
         expect(stages, JSON.stringify(input)).toContain(stage);
       }
       // What the app is comes before what it wants from you, every variant.
-      expect(stages.indexOf("rules")).toBeLessThan(stages.indexOf("you"));
+      expect(stages.indexOf("promises")).toBeLessThan(stages.indexOf("you"));
+      expect(stages[0]).toBe("welcome");
       expect(stages.at(-1)).toBe("week");
     }
   });
 
-  it("is seven screens for somebody with nothing in it", () => {
-    expect(tourStages(both)).toHaveLength(7);
+  it("is six screens for somebody with nothing in it, and no more", () => {
+    /*
+      It was seven, and before that eleven. Each screen is one picture, one
+      title and one line now; a seventh has to earn its place against the
+      reader who closes a walkthrough that will not end.
+    */
+    expect(tourStages(both)).toHaveLength(6);
   });
 });
 
@@ -212,21 +218,35 @@ describe("screenCopy", () => {
   });
 
   it("names the product on the first screen rather than spelling it out", () => {
-    expect(screenCopy("day", null).title).toContain("Upside Lab");
+    expect(screenCopy("welcome", null).title).toContain("Upside Lab");
   });
 
   it("says the first screen is made up, on the first screen", () => {
-    // Real companies, invented share counts, an invented day. If that stops
+    // Real companies, invented share counts, an invented week. If that stops
     // being said out loud, the screen reads as a record of something that
     // happened to a real company.
-    expect(screenCopy("day", null).lede.toLowerCase()).toContain("made up");
+    expect(screenCopy("welcome", null).lede.toLowerCase()).toMatch(/made[ -]up/);
   });
 
   it("only claims a view once a tier has actually been settled", () => {
-    expect(screenCopy("week", null).title).not.toContain("set to");
-    expect(screenCopy("week", "Comfortable investor").title).toContain(
+    expect(screenCopy("week", null).lede).not.toMatch(/set up for/i);
+    expect(screenCopy("week", "Comfortable investor").lede).toContain(
       "Comfortable investor"
     );
+  });
+
+  it("keeps every line under the title to one short sentence or two", () => {
+    /*
+      The walkthrough before this one ran three-sentence ledes over screens
+      that then explained themselves again, which is what made it a wall of
+      text. The screen is the explanation; the line says what to do with it.
+    */
+    for (const stage of stages) {
+      const { lede } = screenCopy(stage, "Comfortable investor");
+      expect(lede.length, stage).toBeLessThanOrEqual(90);
+      expect(lede.split(/[.?!](\s|$)/).filter((x) => x && x.trim()).length, stage)
+        .toBeLessThanOrEqual(2);
+    }
   });
 
   it("never tells the reader to skip, because Skip leaves the walkthrough", () => {
@@ -275,11 +295,11 @@ describe("screenCopy", () => {
 */
 describe("the tour never promises a room that is already there", () => {
   const TOUR_FILES = [
-    "src/components/tour/RoomsScreen.tsx",
     "src/components/tour/AboutYouScreen.tsx",
-    "src/components/tour/GroundRulesScreen.tsx",
+    "src/components/tour/PromisesScreen.tsx",
     "src/components/tour/FirstWeekScreen.tsx",
     "src/components/WelcomeTour.tsx",
+    "src/lib/welcome-tour.ts",
   ];
 
   it("has no tier gate left to describe", () => {
@@ -308,49 +328,32 @@ describe("the tour never promises a room that is already there", () => {
 });
 
 /*
-  The ground rules cannot be skipped by pressing the obvious button.
+  One way forward, and it is the footer's.
 
-  The screen used to keep its own claim index and draw its own "Next one"
-  button inside the card, while the shell's pinned footer carried the big
-  "Next" under the thumb. Two forward affordances, and the big one jumped
-  the whole stage: pressing it after the first claim threw away every claim
-  after it, silently, which is what happened to the first person who read
-  it. One way forward now, and it is the footer's, which steps the claims
-  before it steps the stage.
+  The ground rules screen used to keep its own place in a sequence and draw
+  its own "Next one" button inside its card, while the footer carried the
+  big "Next" under the thumb. Two forward affordances, and the big one
+  jumped the whole stage, throwing away every claim after the first, which
+  is what happened to the first person who read it. That screen is gone,
+  and the rule it taught stays: no screen draws a forward button of its
+  own, and the walkthrough's only way forward is the footer.
 */
-describe("the ground rules have one way forward", () => {
-  const SCREEN = readFileSync(
-    "src/components/tour/GroundRulesScreen.tsx",
-    "utf8"
-  );
+describe("the walkthrough has one way forward", () => {
   const SHELL = readFileSync("src/components/WelcomeTour.tsx", "utf8");
 
-  it("does not keep its own place in the sequence", () => {
-    expect(SCREEN).not.toMatch(/useState/);
+  it("draws Next and Finish once each, in the footer", () => {
+    expect(SHELL.match(/\{nextLabel\}/g) ?? []).toHaveLength(1);
+    expect(SHELL.match(/"Finish"/g) ?? []).toHaveLength(1);
   });
 
-  it("draws no forward button of its own", () => {
-    // The two answer buttons are the only buttons on the card.
-    const buttons = [...SCREEN.matchAll(/<Button\b/g)].length;
-    expect(buttons).toBe(2);
-  });
-
-  it("steps a claim before the shell steps the stage", () => {
-    const onNext = SHELL.slice(SHELL.indexOf("function onNext()"));
-    const step = onNext.indexOf('stage === "rules"');
-    const leave = onNext.indexOf("go(1)");
-    expect(step).toBeGreaterThan(-1);
-    expect(step).toBeLessThan(leave);
-    expect(onNext.slice(step, leave)).toMatch(/return;/);
-  });
-
-  it("asks for every claim it holds", () => {
-    const list = SCREEN.slice(SCREEN.indexOf("export const RULES"));
-    const claims = [...list.matchAll(/\bclaim:/g)].length;
-    expect(claims).toBeGreaterThan(1);
-    // The lede counts them out loud, so it cannot drift from the list.
-    expect(screenCopy("rules", null).lede).toMatch(
-      new RegExp(`\\b${["", "one", "two", "three", "four", "five", "six"][claims]}\\b`, "i")
-    );
-  });
+  for (const file of [
+    "src/components/tour/PromisesScreen.tsx",
+    "src/components/tour/AboutYouScreen.tsx",
+    "src/components/tour/FirstWeekScreen.tsx",
+  ]) {
+    it(`${file} draws no forward button of its own`, () => {
+      const src = readFileSync(file, "utf8");
+      expect(src).not.toMatch(/>\s*(Next|Continue|Next one)\s*</);
+    });
+  }
 });

@@ -2521,16 +2521,19 @@ run("chrome is quiet, black field, prose sits in a dark box", () => {
     "utf8"
   );
   /*
-    The sign-in screen used to draw its own sample card, so these two
-    assertions read the gate. There is one sample now, `SampleBriefing`,
-    and both screens draw it, so what the card says is asserted where the
-    card lives. The rule is unchanged: prose on a sample sits in a dark
-    box, and a verdict pill says the words the app itself says.
+    The sign-in screen used to draw its own sample card, so these
+    assertions read the gate. There is one sample now, the made-up week
+    in `PulseFilm`, and the landing, the sign-in column and the walkthrough
+    all draw it. Its caption sits in a dark well, and no verdict pill on a
+    sample may use a word the app itself does not.
   */
-  assert.match(landing, /<Reading nested label="What actually happened"/);
   assert.equal(actionLabel("hold"), "Inside recent range");
   assert.match(gate, /SampleBriefing/);
-  assert.match(landing, /Inside recent range/);
+  assert.match(landing, /<PulseFilm/);
+  assert.match(
+    readFileSync(join(process.cwd(), "src/components/landing/PulseFilm.tsx"), "utf8"),
+    /card-sheen glass-well/
+  );
   assert.doesNotMatch(gate, /<Pill>Hold<\/Pill>/);
   assert.doesNotMatch(landing, /<Pill>Hold<\/Pill>/);
   assert.doesNotMatch(landing, /<Pill>Look<\/Pill>/);
@@ -3317,7 +3320,11 @@ run("sign-in reads as a product", () => {
   assert.doesNotMatch(landing, /ticker: "/);
   assert.match(sample, /ticker: "MSFT"/);
   assert.match(sample, /ticker: "AMZN"/);
-  assert.match(landing, /Thesis intact/);
+  // The made-up week reads its companies out of that one list.
+  assert.match(
+    readFileSync(join(process.cwd(), "src/lib/landing-film.ts"), "utf8"),
+    /sampleHoldingBy/
+  );
   /*
    * The covered-call symbol pill is a mark from inside the app that no
    * stranger has been introduced to, and the tilt was a flourish the

@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Segmented, SUGGEST_MENU } from "@/components/ui/Panel";
 import { HouseholdCoinChips } from "@/components/CoinChips";
 import { TickerSymbol } from "@/components/TickerSymbol";
-import { TourAsk } from "@/components/tour/TourRow";
 import { ownedBookPortfolios } from "@/lib/classroom";
 import { requestBookRefresh } from "@/lib/book-cache";
 import { isCoinSymbol, tickerFieldText } from "@/lib/coins";
@@ -375,8 +374,6 @@ export function AddHoldingsScreen({
 
   return (
     <div className="flex flex-col gap-4">
-      <TourAsk>Four ways in. Pick the least work.</TourAsk>
-
       <Segmented
         value={road}
         onChange={setRoad}
@@ -605,9 +602,7 @@ export function AddHoldingsScreen({
       {road === "csv" && (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            Most brokers can export one. It wants a ticker, a share count and
-            what you paid, and it does not mind which order the columns are
-            in or which separator your part of the world uses.
+            The file your broker exports. Any column order works.
           </p>
           {csvNote && (
             <p className="text-sm text-muted-foreground">{csvNote}</p>
@@ -647,15 +642,13 @@ export function AddHoldingsScreen({
       {road === "picture" && (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            A photo or a screenshot of your broker&apos;s holdings page, the
-            one with share counts and what you paid. Margus reads it and
-            fills the rows in for you.
+            A screenshot of your broker&apos;s holdings. Margus reads it and
+            shows you every row before anything is saved.
           </p>
           {picture && (
             <p className="text-sm text-muted-foreground">
-              Got <span className="text-foreground">{picture}</span>. Margus
-              opens it the moment this walkthrough closes, and shows you what
-              was read before anything is saved.
+              Got <span className="text-foreground">{picture}</span>. It opens
+              as soon as this closes.
             </p>
           )}
           <input {...screenshotPickerInputProps(screenshot)} />
@@ -679,9 +672,7 @@ export function AddHoldingsScreen({
           )}
           {firstQuote === "none" && (
             <p className="text-sm text-muted-foreground">
-              {cashtag(first.ticker)} is saved. There is no price for it this
-              minute, so Home will put one beside it the next time the market
-              prints.
+              {cashtag(first.ticker)} is saved. No price for it this minute.
             </p>
           )}
           {firstQuote !== null && firstQuote !== "none" && (
@@ -692,21 +683,12 @@ export function AddHoldingsScreen({
               </p>
               <p className="text-sm text-muted-foreground">
                 Your {first.shares}{" "}
-                {isCoinSymbol(first.ticker) ? "of it" : "shares"} are worth{" "}
-                {currency(first.shares * firstQuote.price, 0)}, which is{" "}
-                {currency(
-                  Math.abs(
-                    first.shares * firstQuote.price -
-                      first.shares * first.buyPrice
-                  ),
-                  0
-                )}{" "}
-                {first.shares * firstQuote.price >=
-                first.shares * first.buyPrice
-                  ? "more"
-                  : "less"}{" "}
-                than the {currency(first.shares * first.buyPrice, 0)} you put
-                in. That is the whole app: your own money, said back to you.
+                {isCoinSymbol(first.ticker) ? "coins are" : "shares are"} worth{" "}
+                <span className="text-foreground">
+                  {currency(first.shares * firstQuote.price, 0)}
+                </span>
+                , against the {currency(first.shares * first.buyPrice, 0)} you
+                put in.
               </p>
             </>
           )}

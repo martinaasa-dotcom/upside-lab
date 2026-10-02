@@ -60,8 +60,13 @@ export const PRODUCT_SENTENCE = PRODUCT_HEADLINE.join(" ");
 export const OG_CARD_LINE =
   `${PRODUCT_NAME}. Educational scenarios. Never financial advice.`;
 
+/*
+  It read "Most falls are the whole market having a bad week. This tells
+  you when it is something else." True, and it sold the product on the
+  falls, which the landing stopped doing on 2026-10-02.
+*/
 export const PRODUCT_BLURB =
-  "Most falls are the whole market having a bad week. This tells you when it is something else.";
+  "Every move in your portfolio, explained in plain English: the whole market, or news at the company itself.";
 
 /** Name used when a first-run import creates the sheet for you. */
 export const FIRST_SHEET_NAME = "My portfolio";
@@ -71,7 +76,7 @@ export const SIGNIN_WHO =
   "Your broker shows you the number. This shows you what happened at the companies behind it, and whether anything really changed.";
 
 export const SIGNIN_POINTS = [
-  "When a price falls, it says whether there was news about the company or the whole market moved together.",
+  "Every day it says what moved each company you own: the whole market, or news of its own.",
   "Margus has read your portfolio. Ask why your week went the way it did.",
   "A circle is the people you already talk to about this. Share a portfolio and see how everyone's day went.",
 ] as const;
