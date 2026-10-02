@@ -99,6 +99,12 @@ export function watchArrivals(within?: Element): () => void {
 
   const consider = (el: Element) => {
     if (judged.has(el)) return;
+    /*
+      Never on the signed-out landing. Holding a bar there until it is
+      scrolled to is a scroll reveal, and that page does not have them
+      (landing-paint.test.ts): its life is in what a reader presses.
+    */
+    if (el.closest(".landing-field")) return;
     seen.observe(el);
   };
 

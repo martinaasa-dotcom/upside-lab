@@ -481,10 +481,10 @@ function AnswerPlaceholder() {
       />
       <div className="grid gap-3 sm:grid-cols-2" aria-hidden>
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-28 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+          <div key={i} className="skeleton-shine h-28 rounded-lg bg-muted" />
         ))}
       </div>
-      <div className="h-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" aria-hidden />
+      <div className="skeleton-shine h-64 rounded-xl bg-muted" aria-hidden />
       <p className="sr-only">Working out your plan.</p>
     </Panel>
   );

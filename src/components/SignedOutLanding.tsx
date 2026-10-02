@@ -63,7 +63,7 @@ import {
   type SampleHolding,
 } from "@/lib/sample-portfolio";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /**
  * The page a stranger lands on.
@@ -545,10 +545,28 @@ function Bubble({ mine, children }: { mine?: boolean; children: ReactNode }) {
   );
 }
 
+/** How long the sample "types" before answering, so a press reads as a question asked. */
+const TYPING_MS = 750;
+
 function MargusStill() {
   const [asked, setAsked] = useState<string | null>(null);
+  const [typing, setTyping] = useState(false);
   const answer = FOLLOW_UPS.find((f) => f.q === asked);
   const left = FOLLOW_UPS.filter((f) => f.q !== asked);
+
+  useEffect(() => {
+    if (!typing) return;
+    const done = window.setTimeout(() => setTyping(false), TYPING_MS);
+    return () => window.clearTimeout(done);
+  }, [typing, asked]);
+
+  const ask = (q: string) => {
+    setAsked(q);
+    const calm =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    setTyping(!calm);
+  };
 
   return (
     <Panel className="h-auto gap-4 p-4">
@@ -578,10 +596,28 @@ function MargusStill() {
 
       {answer ? (
         <>
-          <Bubble mine>{answer.q}</Bubble>
-          <div className="animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-            <Bubble>{answer.a}</Bubble>
+          <div
+            key={`q:${answer.q}`}
+            className="animate-in fade-in-0 slide-in-from-right-3 duration-300 motion-reduce:animate-none"
+          >
+            <Bubble mine>{answer.q}</Bubble>
           </div>
+          {typing ? (
+            <div className="flex justify-start" aria-hidden>
+              <span className={cn(CARD, "typing-dots flex items-center gap-1 rounded-2xl rounded-bl-sm px-3.5 py-3")}>
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
+          ) : (
+            <div
+              key={`a:${answer.q}`}
+              className="animate-in fade-in-0 slide-in-from-left-3 duration-300 motion-reduce:animate-none"
+            >
+              <Bubble>{answer.a}</Bubble>
+            </div>
+          )}
         </>
       ) : null}
 
@@ -592,7 +628,7 @@ function MargusStill() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setAsked(f.q)}
+            onClick={() => ask(f.q)}
           >
             {f.q}
           </Button>
@@ -1349,7 +1385,7 @@ function HeroHybrid({
             </p>
             <h1 className="mt-5">
               <span className="block text-balance font-heading text-[2.75rem] font-semibold leading-[1] tracking-[-0.042em] text-foreground sm:text-[4rem] xl:text-[4.75rem]">
-                Everything is red.
+                Everything is <span className="text-loss">red.</span>
                 <span className="block text-muted-foreground">
                   Was it you, or the market?
                 </span>

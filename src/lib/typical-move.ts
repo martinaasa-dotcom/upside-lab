@@ -29,10 +29,10 @@ const MIN_DAYS = 12;
  * days start to be worth remarking on rather than merely being above the
  * middle. Days between here and `BIG_MULTIPLE` are "bigger than usual".
  */
-const ORDINARY_MULTIPLE = 1.6;
+export const ORDINARY_MULTIPLE = 1.6;
 
 /** At or above this multiple, the day is worth a sentence of its own. */
-const BIG_MULTIPLE = 3;
+export const BIG_MULTIPLE = 3;
 
 export type DaySize = "ordinary" | "bigger" | "big";
 

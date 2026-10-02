@@ -28,6 +28,7 @@
  * belongs.
  */
 
+import { Check, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -163,7 +164,12 @@ export function RecallCardPanel({
             : "About what you already own. Nothing is scored."
         }
       />
-      <p className="text-base font-medium leading-relaxed text-foreground">
+      {/* A new question arrives rather than appears: "Another one" swaps
+          the whole card, keyed on its id, so the change is visible. */}
+      <p
+        key={card.id}
+        className="animate-in fade-in-0 slide-in-from-bottom-1 text-base font-medium leading-relaxed text-foreground duration-300 motion-reduce:animate-none"
+      >
         {card.question}
       </p>
       {/*
@@ -183,24 +189,33 @@ export function RecallCardPanel({
           const chosen = picked === i;
           return (
             <Button
-              key={option}
+              key={`${card.id}:${option}`}
               type="button"
               variant="outline"
               disabled={answered}
               onClick={() => answer(i)}
+              style={{ ["--i" as string]: i * 3 }}
               className={cn(
-                "h-auto min-h-11 justify-start whitespace-normal py-2 text-left disabled:opacity-100",
+                "wave-in h-auto min-h-11 justify-start gap-2 whitespace-normal py-2 text-left transition-[opacity,box-shadow,color] duration-300 disabled:opacity-100",
                 answered && isAnswer && "ring-1 ring-gain/40 text-gain",
-                answered && chosen && !isAnswer && "ring-1 ring-loss/40"
+                answered && chosen && !isAnswer && "ring-1 ring-loss/40",
+                /* Once answered, the two that matter stay lit and the rest
+                   step back, so the eye goes straight to them. */
+                answered && !isAnswer && !chosen && "disabled:opacity-45"
               )}
             >
-              {option}
+              <span className="min-w-0 flex-1">{option}</span>
+              {answered && isAnswer ? (
+                <Check aria-hidden className="answer-pop size-4 shrink-0" />
+              ) : answered && chosen ? (
+                <X aria-hidden className="answer-pop size-4 shrink-0 text-loss" />
+              ) : null}
             </Button>
           );
         })}
       </div>
       {answered ? (
-        <div className="flex flex-col gap-1">
+        <div className="animate-in fade-in-0 slide-in-from-top-1 flex flex-col gap-1 duration-300 motion-reduce:animate-none">
           <p
             className={cn(
               "text-sm font-medium",
