@@ -43,6 +43,25 @@ export function tableCols(
 }
 
 /**
+ * Tracks as wide as what is written in them, for a table whose columns
+ * hold very different amounts. Pair with `FluidTable spread`, which hands
+ * the leftover width out as equal gaps between the columns.
+ *
+ * Equal `1fr` tracks give every column the same width, so a column of
+ * single digits ("Contracts") or four-character figures ("Delta") sits
+ * right-aligned at the far end of a wide track with a hole on its left,
+ * while the column beside it is packed edge to edge. Measured on the
+ * covered calls table at 1440 that put 90px of air before the contract
+ * count and 12px before the expiry: the row read as clumps. Sizing each
+ * track to its widest cell and spreading the rest between them makes
+ * every gap between two columns the same, which is what reads as even.
+ */
+export function fitCols(count: number, action = false): string {
+  const base = `repeat(${count}, max-content)`;
+  return action ? `${base} ${ACTION_COL}` : base;
+}
+
+/**
  * Full-width CSS grid. `px-1.5` plus each cell's `px-1.5` makes the side
  * gutter match the gap between columns. Rows break out of that pad so
  * hover and footer fills reach the card edge.
@@ -53,10 +72,13 @@ export function FluidTable({
   template,
   children,
   className,
+  spread = false,
 }: {
   template: string;
   children: ReactNode;
   className?: string;
+  /** Leftover width becomes equal gaps between columns. Use with `fitCols`. */
+  spread?: boolean;
 }) {
   return (
     <div
@@ -66,7 +88,10 @@ export function FluidTable({
       )}
     >
       <div
-        className="grid w-full min-w-0 px-1.5 text-sm tabular-nums"
+        className={cn(
+          "grid w-full min-w-0 px-1.5 text-sm tabular-nums",
+          spread && "min-w-max justify-between"
+        )}
         style={{ gridTemplateColumns: template }}
       >
         {children}

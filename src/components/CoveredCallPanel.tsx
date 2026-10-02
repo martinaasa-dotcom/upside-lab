@@ -9,8 +9,8 @@ import {
   cellCenter,
   cellText,
   cellTicker,
+  fitCols,
   headRow,
-  tableCols,
 } from "@/components/FluidTable";
 import { TickerSymbol } from "@/components/TickerSymbol";
 import { Button } from "@/components/ui/button";
@@ -398,6 +398,14 @@ const HEADERS = [
 ] as const;
 
 /**
+ * Columns centred under their header rather than right-aligned. A date
+ * control is not a figure anybody reads down for its digits, and a one-digit
+ * contract count right-aligned under a nine-letter header sits off at the
+ * end of it, so both read as balanced only in the middle.
+ */
+const CENTRED_HEADERS = new Set<string>(["Expires", "Contracts"]);
+
+/**
  * Headers the glossary already answers, so this table does not keep a
  * second copy of the answer. `Strike` and `Premium` are the two words a
  * reader meets again in their broker's own screens, which is exactly the
@@ -493,7 +501,13 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
   );
   const tickerCell = cellTicker;
   const tracking = Boolean(trackedCalls && rules && onRulesChange);
-  const template = tableCols(HEADERS.length, mixedListings, tracking);
+  /*
+    Each column is as wide as its widest cell and the room left over is
+    spread evenly between them, so the gap between any two columns is the
+    same. Equal tracks put a single-digit contract count at the far end of
+    a column as wide as the expiry control beside it.
+  */
+  const template = fitCols(HEADERS.length, tracking);
 
   const [seed, setSeed] = useState<CallModalSeed | null>(null);
   /** An expiry copied from one row, offered to paste into the others. */
@@ -844,7 +858,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
 
       {/* Desktop table */}
       <div className="hidden md:block">
-        <FluidTable template={template}>
+        <FluidTable template={template} spread>
           <FluidRow className={cn(headRow, "hover:bg-transparent")}>
             {HEADERS.map((label, i) => (
               <div
@@ -864,7 +878,9 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                     ? tickerCell
                     : label === "Near target?"
                       ? cellText
-                      : cellBase
+                      : CENTRED_HEADERS.has(label)
+                        ? cellCenter
+                        : cellBase
                 }
               >
                 {/*
@@ -991,7 +1007,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div className={cn(cellBase, "tabular-nums", figureTone(r))}>
                 {r.option?.delta != null ? deltaText(r.option.delta) : NO_VALUE}
               </div>
-              <div className={cn(cellBase, "text-muted-foreground")}>
+              <div className={cn(cellCenter, "text-muted-foreground")}>
                 <InlineExpiry
                   value={r.expiration}
                   onCommit={(expiry) => onPatchExpiry(r.holding.id, expiry)}
@@ -999,7 +1015,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
                   onCopy={setCopiedExpiry}
                 />
               </div>
-              <div className={cn(cellBase, "tabular-nums text-muted-foreground")}>
+              <div className={cn(cellCenter, "font-mono tabular-nums text-muted-foreground")}>
                 {Math.round(r.contracts)}
               </div>
               <div
@@ -1039,7 +1055,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
               <div className={cellBase} />
               <div className={cellBase} />
               <div className={cellBase} />
-              <div className={cellBase}>
+              <div className={cellCenter}>
                 {pasteAll ? (
                   <Button
                     type="button"
