@@ -196,8 +196,7 @@ export function CoveredCallModal({ open, holdings, seed, onClose, onSave }: Prop
           <div>
             <h2>{editing ? "Edit covered call" : "Track a covered call"}</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Enter it as your broker shows it. Its delta and what you have kept
-              are read from the market from then on.
+              Enter it as your broker shows it.
             </p>
           </div>
           <Button
@@ -331,7 +330,7 @@ export function CoveredCallModal({ open, holdings, seed, onClose, onSave }: Prop
 
         {preview && preview.mid != null ? (
           <p className="mt-3 text-sm tabular-nums text-muted-foreground">
-            {preview.quoted ? "The market quotes this contract at " : "No quote for this exact contract today, so it is estimated at about "}
+            {preview.quoted ? "Market price " : "No quote today. About "}
             <span className="text-foreground">{currency(preview.mid)}</span> a share
             {preview.delta != null ? (
               <>
@@ -344,8 +343,8 @@ export function CoveredCallModal({ open, holdings, seed, onClose, onSave }: Prop
         {tooMany ? (
           <p className="mt-3 text-sm text-caution">
             {cover === 0
-              ? `${cashtag(ticker)} is under 100 shares in this portfolio, so a call on it is not covered by shares.`
-              : `${cashtag(ticker)} covers ${cover} contract${cover === 1 ? "" : "s"} in this portfolio. Calls beyond that are not covered by shares.`}
+              ? `${cashtag(ticker)} is under 100 shares here, so this call is not covered.`
+              : `${cashtag(ticker)} covers ${cover} contract${cover === 1 ? "" : "s"} here. Calls beyond that are not covered.`}
           </p>
         ) : null}
         {error && <p className="mt-3 text-sm text-loss">{error}</p>}
