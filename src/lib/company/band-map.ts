@@ -468,7 +468,7 @@ export function readySaid(
 ): string {
   const { trimNames, addNames, reachedEdited, reachedTotal } = summary;
   if (reachedTotal === 0) {
-    return "every name is somewhere in the middle of its own fair value zones";
+    return "every name sits close to fair value";
   }
   /*
     The names, and which end of the ladder they reached, described

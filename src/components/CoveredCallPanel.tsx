@@ -609,7 +609,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       <Panel id={COVERED_CALLS_ANCHOR} className="scroll-mt-28 overflow-hidden">
         <PanelHeader
           title="Covered calls"
-          subtitle="One call needs a hundred shares of a single company. This opens once a holding gets there."
+          subtitle="Opens once a holding reaches 100 shares."
         />
         {/*
           How close the nearest holding is, drawn rather than said: a bar to
@@ -651,7 +651,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       <div className="border-b border-border surface-gutter py-6">
         <PanelHeader
           title="Covered calls"
-          subtitle="The calls you have sold or plan to sell, read against your own rules, and below them a suggested call for each holding."
+          subtitle="Your calls against your own rules, then a suggested call per holding."
         />
       </div>
 
@@ -669,7 +669,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
         {rows.length === 0 ? (
           <EmptyState
             title="Nothing to write calls on yet"
-            detail="You need shares before you can write calls on them. Add a holding and this fills in."
+            detail="Add a holding and this fills in."
             action={
               onAddHolding && (
                 <Button type="button" onClick={onAddHolding}>
@@ -896,7 +896,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
             <div className="col-span-full p-4">
               <EmptyState
                 title="Nothing to write calls on yet"
-                detail="You need shares before you can write calls on them. Add a holding and this fills in."
+                detail="Add a holding and this fills in."
                 action={
                   onAddHolding && (
                     <Button type="button" onClick={onAddHolding}>
@@ -1059,7 +1059,7 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       </div>
       <p className="border-t border-border surface-gutter py-4 text-sm text-muted-foreground">
         {anyEstimated
-          ? "Figures in grey are worked out from the volatility of nearby contracts, because that exact strike or date is not being quoted yet. "
+          ? "Grey figures are estimated from nearby contracts, as this exact one has no quote yet. "
           : ""}
         {ADVICE_DISCLAIMER_SHORT}
       </p>

@@ -716,7 +716,7 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
       <Tile
         label="Around fair value"
         value={sharePct(s.aroundFairValue)}
-        sub={`of ${voice.whose} is priced near what its companies look worth. Below it, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
+        sub={`of ${voice.whose}. Below it, ${sharePhrase(s.below)}. Above it, ${sharePhrase(s.above)}.`}
       />
       <Tile
         /*
@@ -751,7 +751,7 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
         value={ready === 0 ? "None" : `${ready} of ${map.points.length}`}
         sub={
           ready === 0 && map.points.length === 1 && !voice.pooled
-            ? "your one holding is somewhere in the middle of its own fair value zones"
+            ? "your one holding sits close to fair value"
             : readySaid(s, voice.pooled)
         }
         accent={ready > 0}
@@ -767,7 +767,7 @@ function Summary({ map, voice }: { map: Map; voice: Voice }) {
         value={s.biggest ? sharePct(s.biggest.share) : NO_VALUE}
         sub={
           s.biggest
-            ? `${s.biggest.ticker}, which its own fair value zones put at "${s.biggest.bandLabel.toLowerCase()}".`
+            ? `${s.biggest.ticker}, ${s.biggest.bandLabel.toLowerCase()}.`
             : "nothing with a plan yet"
         }
       />
@@ -823,8 +823,8 @@ export function BandMap({
         }
         subtitle={
           pooled
-            ? "Everyone's holdings pooled into one company each, in its own fair value zones. The bar is how much of the circle's money is in that zone. What anybody paid stays theirs, so this says where a price sits and never who is up or down."
-            : "Every name in its own fair value zones. The bar is how much of your money is in that zone, and each block is one holding."
+            ? "Everyone's holdings, pooled. A bar is the circle's money in that zone. What anybody paid stays theirs."
+            : "A bar is your money in that zone. Each block is one holding."
         }
         icon={<MapIcon className="h-4 w-4" />}
       />
@@ -892,9 +892,9 @@ export function BandMap({
 
       {map.missing.length > 0 && (
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Not on this: {map.missing.map((t) => cashtag(t)).join(", ")}. Fair value zones
-          need a price and something to anchor on, and one of those is
-          missing for {map.missing.length === 1 ? "that one" : "those"}.{" "}
+          Not shown: {map.missing.map((t) => cashtag(t)).join(", ")}, with no
+          price or fair value yet, so the shares here add up to less than
+          100%.
           {/*
             THE SHORTFALL IS ANSWERED WHERE THE READER MEETS IT.
 
@@ -906,14 +906,15 @@ export function BandMap({
             owed the reason on the same screen rather than left to infer
             it from a sentence above about a different subject.
           */}
-          The shares here are of {voice.whose}, so with{" "}
-          {map.missing.length === 1 ? "that one" : "those"} missing they add up
-          to less than all of it.
         </p>
       )}
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {"A zone is a multiple of that company's own fair value, which is what makes two names comparable here. "}
+        {/*
+          What a zone is, a slice of that company's own fair value, is
+          behind the mark beside every band's name, so it is not said a
+          second time down here.
+        */}
         {/*
           The invitation has to be one somebody can accept. A circle's
           plan is nobody's to change, so telling a reader to change a
@@ -921,7 +922,7 @@ export function BandMap({
           exist; their own page is where their own levels live.
         */}
         {pooled
-          ? "Tap a name to open its own page, and set your own levels there if you hold it. "
+          ? "Tap a name to open its page, and set your own levels there if you hold it. "
           : "Tap a name to open its plan and change any level. "}
         {ADVICE_DISCLAIMER_SHORT}
       </p>

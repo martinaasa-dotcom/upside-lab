@@ -482,8 +482,7 @@ export const PortfolioTable = memo(function PortfolioTable({
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        A screenshot or a CSV file brings every row in at once. Use whichever
-        is easier for you to get hold of.
+        A screenshot or a CSV brings in every row at once.
       </p>
     </div>
   ) : (
@@ -649,12 +648,10 @@ export const PortfolioTable = memo(function PortfolioTable({
             </p>
             <p className="mt-1 text-muted-foreground">
               {unpriced.map((h) => h.ticker).join(", ")}
-              {unpriced.length === 1 ? " is" : " are"} shown at what you paid,
-              so {unpriced.length === 1 ? "it reads" : "they read"} as flat
-              rather than as missing. That usually means the company was
-              renamed or taken over, or the symbol needs correcting. Check the
-              symbol, and if the company was bought, replace the row with what
-              you hold now.
+              {unpriced.length === 1 ? " shows" : " show"} at what you paid, so
+              {unpriced.length === 1 ? " it looks" : " they look"} flat. Usually
+              a rename, a takeover or a wrong symbol. Check the symbol, or
+              replace the row with what you hold now.
             </p>
           </div>
         </div>

@@ -103,8 +103,8 @@ export function YtdAnchorModal({
               Your real year
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              The chart still draws its shape from what you hold today. This
-              number sets how big the year actually was.
+              The chart&apos;s shape comes from what you hold today. This sets
+              how big the year was.
             </p>
           </div>
           <Button
@@ -144,7 +144,7 @@ export function YtdAnchorModal({
         <p className="mt-3 text-sm text-muted-foreground">or</p>
 
         <label className="mt-3 grid gap-1 text-sm text-muted-foreground">
-          What your broker says you are up or down this year (%)
+          Up or down this year, per your broker (%)
           <Input
             type="text"
             inputMode="decimal"

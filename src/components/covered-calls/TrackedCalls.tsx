@@ -309,12 +309,12 @@ function CallCard({
             {rollSaid(reading.roll, call.contracts)}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            At the middle of today&apos;s quotes; a real order fills between the bid and the ask.
+            At the middle of today&apos;s quotes. A real order fills between bid and ask.
           </p>
         </div>
       ) : sold && reading?.rollSearched && !reading.roll && health.kind === "roll" ? (
         <p className="text-sm text-muted-foreground">
-          The chain has nothing later at this strike or above with a quote today.
+          Nothing later at this strike or above has a quote today.
         </p>
       ) : null}
     </Card>
@@ -447,9 +447,8 @@ export function TrackedCalls({
       </div>
       {views.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Sold a covered call, or planning one? Track it here and its delta and
-          what you have kept are read from the market, with a flag when it
-          reaches the level you roll or close at.
+          Track a call you sold or plan to sell. Its delta and what you have
+          kept follow the market, flagged at your own levels.
         </p>
       ) : (
         <div className="grid gap-3 lg:grid-cols-2 lg:items-start">

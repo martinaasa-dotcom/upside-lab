@@ -55,9 +55,8 @@ export function CostBasisModal({
               What you paid
             </h2>
             <p className="text-sm text-muted-foreground">
-              The import used today&apos;s prices as what you paid. Type your
-              real average buy price in dollars, then apply, so the gain and
-              loss numbers are right.
+              The import used today&apos;s prices. Type what you really paid
+              per share, in dollars, so your gain or loss is right.
             </p>
           </div>
           <Button
