@@ -1077,8 +1077,8 @@ export function AnswerPanel({
           </div>
           {equity > PORTFOLIO_RATE_CEILING_PCT && holdingsView != null ? (
             <p className="text-xs leading-relaxed text-muted-foreground">
-              &ldquo;Yours&rdquo; is this app&apos;s outlook for the next few years, not a record. No whole market has
-              grown that fast for a lifetime.
+              &ldquo;Yours&rdquo; is this app&apos;s few-year outlook, not a record. No whole market has grown that fast
+              for a lifetime.
             </p>
           ) : null}
         </div>

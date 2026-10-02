@@ -15,7 +15,8 @@
  * THREE PICTURES, EACH ANSWERING ONE QUESTION. Where the pay goes (a bar
  * split three ways). What the wait looks like at every share kept (a bar
  * per five per cent, theirs lit, any of them pressable). The same amount a
- * month three ways, and one everyday cost priced over a working life.
+ * month three ways, and one everyday cost priced over a working life,
+ * folded behind a press so it is not a fourth block on every visit.
  *
  * IT ASKS FOR ONE FIGURE BEFORE IT SAYS ANYTHING. Without take-home pay
  * there is no share to take, and a lesson drawn on a guessed income is a
