@@ -1,0 +1,597 @@
+/*
+ * The landing page's motion, and the walkthrough's first screen, which
+ * plays the same film. Imported from globals.css.
+ *
+ * Every rule here animates transform or opacity and nothing else, so no
+ * frame of it lays the page out again, and every one of them is switched
+ * off under reduced motion at the bottom of this file. Nothing here hides
+ * content on the first frame: the film paints a finished day, and the
+ * loops in the feature tiles start from a finished picture too.
+ */
+
+/* ------------------------------------------------------------ the film */
+
+/* A chip's own ground: opaque, one step up from the field. */
+.film-chip-fill {
+  background: color-mix(in oklch, var(--background) 86%, var(--foreground));
+}
+/* The chips glide between days on a slight spring. */
+.film-chip {
+  transition:
+    transform 900ms cubic-bezier(0.34, 1.32, 0.64, 1),
+    box-shadow 300ms ease;
+}
+/* Marks and labels that travel with the day. */
+.film-glide {
+  transition: transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.film-glide-anchor {
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The day's own clock, which is also its progress bar. */
+@keyframes film-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.film-progress {
+  transform-origin: left center;
+  animation: film-progress var(--film-day, 6500ms) linear both;
+}
+.film-progress-paused {
+  animation-play-state: paused;
+}
+
+/* A sweep of light across the track: the app reading the day. */
+@keyframes film-scan {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--film-scan-to, 480px));
+    opacity: 0;
+  }
+}
+.film-scan {
+  opacity: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklch, var(--primary) 6%, transparent) 50%,
+    color-mix(in oklch, var(--primary) 18%, transparent) 88%,
+    var(--primary) 96%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(transparent, black 18%, black 82%, transparent);
+  mask-image: linear-gradient(transparent, black 18%, black 82%, transparent);
+  animation: film-scan 900ms cubic-bezier(0.45, 0, 0.55, 1) both;
+}
+
+/* Each chip catches the sweep as it passes. */
+@keyframes film-flash {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.film-chip-flash {
+  opacity: 0;
+  background: color-mix(in oklch, var(--primary) 30%, transparent);
+  box-shadow: 0 0 22px 2px color-mix(in oklch, var(--primary) 40%, transparent);
+  animation: film-flash 750ms ease-out both;
+}
+
+/* The company that had news of its own keeps a slow ring around it. */
+.film-chip-standout::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--primary) 60%, transparent);
+  pointer-events: none;
+  animation: film-halo 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes film-halo {
+  0% {
+    transform: scale(0.94);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* On a day nothing happened, the market's line is the story. */
+.film-market-glow {
+  background: color-mix(in oklch, var(--foreground) 35%, transparent);
+  filter: blur(3px);
+  animation: film-breathe 2.4s ease-in-out infinite;
+}
+@keyframes film-breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* "Reading Tuesday ...", then the sentence. */
+@keyframes film-reading-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.film-reading {
+  animation: film-reading-out 280ms ease-in 1050ms both;
+}
+.film-dots::after {
+  content: "...";
+  display: inline-block;
+  animation: film-dots 900ms steps(4, end) infinite;
+  clip-path: inset(0 100% 0 0);
+}
+@keyframes film-dots {
+  to {
+    clip-path: inset(0 -1ch 0 0);
+  }
+}
+@keyframes film-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.film-caption-in {
+  animation: film-caption-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 1150ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .film-chip,
+  .film-glide,
+  .film-glide-anchor {
+    transition: none;
+  }
+  .film-scan,
+  .film-chip-flash,
+  .film-reading {
+    display: none;
+  }
+  .film-chip-standout::before,
+  .film-market-glow,
+  .film-dots::after,
+  .film-caption-in {
+    animation: none;
+  }
+  .film-chip-standout::before {
+    opacity: 0.6;
+  }
+}
+
+/* ------------------------------------------------------ feature tiles */
+/*
+ * Each loop starts part of the way through its cycle (a negative delay),
+ * at a moment where its picture is complete. A tile somebody scrolls to at
+ * any point, or a browser that paints it once and never again, shows the
+ * finished thing.
+ */
+
+/* What it looks worth: the price walks below, close to, and above. */
+.fv-zone-cool {
+  background: color-mix(in oklch, var(--zone-cool) 22%, transparent);
+}
+.fv-zone-mid {
+  background: color-mix(in oklch, var(--foreground) 9%, transparent);
+}
+.fv-zone-warm {
+  background: color-mix(in oklch, var(--zone-warm) 22%, transparent);
+}
+.fv-zone {
+  opacity: 0.3;
+}
+/* Written out whole: a shorthand with no name was dropped in the build. */
+.fv-zone-0 {
+  animation: fv-lit-0 12s ease-in-out -0.5s infinite both;
+}
+.fv-zone-1 {
+  animation: fv-lit-1 12s ease-in-out -0.5s infinite both;
+}
+.fv-zone-2 {
+  animation: fv-lit-2 12s ease-in-out -0.5s infinite both;
+}
+@keyframes fv-lit-0 {
+  0%,
+  28%,
+  98%,
+  100% {
+    opacity: 1;
+  }
+  34%,
+  92% {
+    opacity: 0.28;
+  }
+}
+@keyframes fv-lit-1 {
+  0%,
+  28%,
+  66%,
+  100% {
+    opacity: 0.28;
+  }
+  34%,
+  59% {
+    opacity: 1;
+  }
+}
+@keyframes fv-lit-2 {
+  0%,
+  59%,
+  98%,
+  100% {
+    opacity: 0.28;
+  }
+  66%,
+  92% {
+    opacity: 1;
+  }
+}
+.fv-pin {
+  animation: fv-pin 12s cubic-bezier(0.65, 0, 0.35, 1) -0.5s infinite both;
+}
+@keyframes fv-pin {
+  0%,
+  26%,
+  100% {
+    transform: translateX(20%);
+  }
+  33%,
+  59% {
+    transform: translateX(50%);
+  }
+  66%,
+  92% {
+    transform: translateX(80%);
+  }
+}
+.fv-read {
+  opacity: 0;
+}
+.fv-read-0 {
+  animation: fv-read-0 12s ease-in-out -0.5s infinite both;
+}
+.fv-read-1 {
+  animation: fv-read-1 12s ease-in-out -0.5s infinite both;
+}
+.fv-read-2 {
+  animation: fv-read-2 12s ease-in-out -0.5s infinite both;
+}
+@keyframes fv-read-0 {
+  0%,
+  26%,
+  99%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+  30%,
+  95% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes fv-read-1 {
+  0%,
+  31%,
+  64%,
+  100% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  35%,
+  59% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fv-read-2 {
+  0%,
+  64%,
+  96%,
+  100% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  68%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Ask Margus: it types, then the answer arrives a line at a time. */
+.chat-typing {
+  opacity: 0;
+  animation: chat-typing 11s linear -7s infinite both;
+}
+@keyframes chat-typing {
+  0%,
+  13% {
+    opacity: 1;
+  }
+  16%,
+  100% {
+    opacity: 0;
+  }
+}
+.chat-line {
+  opacity: 0;
+}
+/*
+ * One clock for the whole answer: each line arrives in turn and they all
+ * leave together, so the answer never un-types itself out of order.
+ */
+.chat-line-0 {
+  animation: chat-line-0 11s ease-out -7s infinite both;
+}
+.chat-line-1 {
+  animation: chat-line-1 11s ease-out -7s infinite both;
+}
+.chat-line-2 {
+  animation: chat-line-2 11s ease-out -7s infinite both;
+}
+@keyframes chat-line-0 {
+  0%,
+  15% {
+    opacity: 0;
+  }
+  20%,
+  88% {
+    opacity: 1;
+  }
+  93%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes chat-line-1 {
+  0%,
+  26% {
+    opacity: 0;
+  }
+  31%,
+  88% {
+    opacity: 1;
+  }
+  93%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes chat-line-2 {
+  0%,
+  37% {
+    opacity: 0;
+  }
+  42%,
+  88% {
+    opacity: 1;
+  }
+  93%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* The Sunday letter: you, against the market. */
+.letter-bar {
+  transform-origin: left center;
+  animation: letter-bar 8s cubic-bezier(0.22, 1, 0.36, 1)
+    calc(var(--bar, 0) * 0.3s - 4s) infinite both;
+}
+@keyframes letter-bar {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  20%,
+  88% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  96% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+
+/* When could you stop: the line draws itself, then the flag lands. */
+.life-reveal {
+  animation: life-reveal 9s cubic-bezier(0.45, 0, 0.25, 1) -5s infinite both;
+}
+@keyframes life-reveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 1;
+  }
+  40%,
+  90% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  97%,
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0;
+  }
+}
+.life-flag {
+  animation: life-flag 9s cubic-bezier(0.34, 1.4, 0.64, 1) -5s infinite both;
+}
+@keyframes life-flag {
+  0%,
+  24% {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  32%,
+  90% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  97%,
+  100% {
+    opacity: 0;
+    translate: 0 0;
+  }
+}
+
+/* Every word explained: a plain phrase, opened. */
+.words-term {
+  animation: words-term 9s ease-in-out -4s infinite both;
+}
+@keyframes words-term {
+  0%,
+  8%,
+  92%,
+  100% {
+    text-decoration-color: color-mix(in oklch, var(--primary) 45%, transparent);
+  }
+  14%,
+  86% {
+    text-decoration-color: var(--primary);
+  }
+}
+.words-pop {
+  transform-origin: 20% 0;
+  animation: words-pop 9s cubic-bezier(0.22, 1, 0.36, 1) -4s infinite both;
+}
+@keyframes words-pop {
+  0%,
+  12% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  20%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fv-zone,
+  .fv-pin,
+  .fv-read,
+  .chat-typing,
+  .chat-line-0,
+  .chat-line-1,
+  .chat-line-2,
+  .letter-bar,
+  .life-reveal,
+  .life-flag,
+  .words-term,
+  .words-pop {
+    animation: none;
+  }
+  .fv-zone-1,
+  .fv-read-1 {
+    opacity: 1;
+  }
+  .fv-pin {
+    transform: translateX(50%);
+  }
+  .chat-typing {
+    opacity: 0;
+  }
+  .chat-line {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------- the walkthrough */
+
+/* Each screen arrives with a short rise. */
+@keyframes tour-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.tour-step {
+  animation: tour-step-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Rows inside a screen follow it in, a beat apart. */
+.tour-rise {
+  animation: tour-step-in 520ms cubic-bezier(0.22, 1, 0.36, 1)
+    calc(120ms + var(--rise, 0) * 90ms) both;
+}
+/* The finish: a ring draws itself and the tick lands in it. */
+.tour-done-ring {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  transform-origin: center;
+  transform: rotate(-90deg);
+  animation: tour-draw 700ms cubic-bezier(0.65, 0, 0.35, 1) 150ms both;
+}
+.tour-done-tick {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: tour-draw 420ms cubic-bezier(0.22, 1, 0.36, 1) 750ms both;
+}
+@keyframes tour-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.tour-done {
+  animation: tour-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1) 650ms both;
+}
+@keyframes tour-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-step,
+  .tour-rise,
+  .tour-done,
+  .tour-done-ring,
+  .tour-done-tick {
+    animation: none;
+  }
+}

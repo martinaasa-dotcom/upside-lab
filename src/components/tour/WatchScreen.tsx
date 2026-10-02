@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HouseholdCoinChips } from "@/components/CoinChips";
-import { TourAsk } from "@/components/tour/TourRow";
 import { cashtag, currency, signedPercent } from "@/lib/format";
 import { sanitizeTickerQuery } from "@/lib/input-guard";
 import {
@@ -134,8 +133,6 @@ export function WatchScreen({
 
   return (
     <div className="flex flex-col gap-4">
-      <TourAsk>Press one you are curious about.</TourAsk>
-
       {/*
         Above the chips, not below them. Thirty chips is about three hundred
         pixels, so a line underneath them is off the screen at the moment
@@ -150,16 +147,14 @@ export function WatchScreen({
           {quote === null && <>Getting today&apos;s price for {cashtag(asked)} …</>}
           {quote === "none" && (
             <>
-              No price for {cashtag(asked)} this minute. It is on your list
-              either way, and Pulse picks it up the next time the market
-              prints.
+              {cashtag(asked)} is on your list. No price for it this minute.
             </>
           )}
           {quote !== null && quote !== "none" && (
             <>
-              {cashtag(asked)} is {currency(quote.price, 2)} right now,{" "}
-              {signedPercent(quote.changePercent, 1)} today. You hear about it
-              in Pulse and in the Sunday email without owning any of it.
+              <span className="text-foreground">{cashtag(asked)}</span> is{" "}
+              {currency(quote.price, 2)} right now,{" "}
+              {signedPercent(quote.changePercent, 1)} today.
             </>
           )}
         </p>

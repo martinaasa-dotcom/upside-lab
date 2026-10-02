@@ -70,90 +70,89 @@ import { PRODUCT_NAME } from "@/lib/product";
  *     walkthrough; and it described the Sunday email three different ways
  *     across three surfaces. Those are fixed, and the email is now one
  *     sentence that the landing page and Account print word for word.
+ * 5 - the walkthrough gets out of the way (2026-10-02). Martin found it
+ *     word heavy, walls of text, and the first screen sold the same red
+ *     day the landing page did. Seven screens became six, each one picture,
+ *     one title and one line: a made-up week played rather than a red day
+ *     to solve, three promises in place of a four-step true-or-not quiz,
+ *     the two questions as three taps each with no preview of Home beside
+ *     them, and the bar along the bottom left for the app to teach, which
+ *     it already does by saying each room's name as you press it. A
+ *     different walkthrough rather than the same one tidied, which is the
+ *     bar this number is for.
  */
-export const WELCOME_TOUR_VERSION = 4;
+export const WELCOME_TOUR_VERSION = 5;
 
 export type Stage =
-  | "day"
-  | "rules"
-  | "rooms"
+  | "welcome"
+  | "promises"
   | "you"
   | "holdings"
   | "watchlist"
   | "week";
 
-/** The dot label under the progress bar. Short: it shares a line with a count. */
+/** The label beside the step count. Short: it shares a line with a count. */
 export const STAGE_LABEL: Record<Stage, string> = {
-  day: "A red day",
-  rules: "Ground rules",
-  rooms: "The bar",
+  welcome: "Welcome",
+  promises: "Three promises",
   you: "About you",
   holdings: "What you own",
   watchlist: "Watching",
-  week: "Your first week",
+  week: "All set",
 };
 
 /** The one element `aria-labelledby` points at, on every screen. */
 export const HEADING_ID = "welcome-tour-title";
 
 /*
-  The heading and the sentence under it, for every screen, in one place.
+  The heading and the one line under it, for every screen, in one place.
 
-  They used to live inside each stage's own block, which meant ten headings,
-  ten slightly different wrappers, and — the actual bug — one `id` on the
-  first of them. `aria-labelledby` pointed at an element that existed on
-  screen one and nowhere else, so nine of the ten screens were an unlabelled
-  dialog. Hoisting the pair fixes that by construction and makes every screen
-  the same shape.
+  They used to live inside each stage's own block, which meant several
+  headings and, the actual bug, one `id` on the first of them, so every
+  screen after it was an unlabelled dialog. Hoisting the pair fixes that by
+  construction and makes every screen the same shape.
+
+  ONE LINE EACH, AND SHORT. The previous walkthrough's ledes ran to three
+  sentences, under a heading, over a screen that then explained itself
+  again in its own paragraphs. Whatever a screen shows is the explanation;
+  the line under the title only says what to do with it.
 */
 export function screenCopy(
   stage: Stage,
   tierLabel: string | null
 ): { title: string; lede: string } {
   switch (stage) {
-    case "day":
+    case "welcome":
       return {
-        title: `A bad day, in ${PRODUCT_NAME}`,
-        lede:
-          "All made up: a portfolio nobody owns, on a day that never happened. Seven of these companies fell with the market and one fell on its own news. In a list of red numbers the two look the same.",
+        title: `Welcome to ${PRODUCT_NAME}`,
+        lede: "It reads every company you own and says what moved it. Here is a made-up week.",
       };
-    case "rules":
+    case "promises":
       return {
-        title: "What this does and does not do",
-        lede:
-          "Four things people believe about this app. One of them is true.",
-      };
-    case "rooms":
-      return {
-        title: "Where everything is",
-        lede:
-          "The bar along the bottom of the screen is how you move around, and your own portfolio sits in it too.",
+        title: "Three promises",
+        lede: "So you know what this is, and what it is not.",
       };
     case "you":
       return {
-        title: "Two questions about you",
-        lede:
-          "They only change how much is open at once. Nothing is locked away, and both can be changed in Account.",
+        title: "Two quick questions",
+        lede: "They decide what is open when you arrive. Nothing is locked away.",
       };
     case "holdings":
       return {
         title: "Add what you own",
-        lede:
-          "The ticker, how many you hold, and roughly what you paid. One company is enough to make Home worth opening.",
+        lede: "One company is enough to start. Nothing connects to your broker.",
       };
     case "watchlist":
       return {
-        title: "Anything you are watching?",
-        lede:
-          "Companies you do not own but are curious about. Pulse keeps an eye on them too, and the Sunday email can bring them up. Press Next if you have none in mind.",
+        title: "Anything you are curious about?",
+        lede: "Watch a company without owning it. Pulse reads it too.",
       };
     case "week":
       return {
-        title: tierLabel
-          ? `That is the whole app. It is set to "${tierLabel}"`
-          : "That is the whole app",
-        lede:
-          "Every switch you just set is in Account. The day the market falls and you want to know what it means, this is the app to open.",
+        title: "You are all set",
+        lede: tierLabel
+          ? `Set up for "${tierLabel}". Change anything later in Account.`
+          : "Change anything later in Account.",
       };
   }
 }
@@ -177,9 +176,8 @@ export function tourStages(input: {
 }): Stage[] {
   const askForHoldings = !input.hasHoldings && !input.classroomOnly;
   return [
-    "day",
-    "rules",
-    "rooms",
+    "welcome",
+    "promises",
     "you",
     ...(askForHoldings ? (["holdings"] as Stage[]) : []),
     "watchlist",

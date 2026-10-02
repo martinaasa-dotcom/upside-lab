@@ -279,9 +279,13 @@ any more; they are kept only as a record.
 **After regenerating, bump the version — and the test suite refuses to let
 you forget.** A favicon is one of the few things a browser holds past a
 deploy. This used to be four separate hand edits with nothing failing when
-one was missed; now every `?v=` (layout icons, `OG_IMAGE_PATH`, the email
-lockup) imports `MARK_ASSET_VERSION` from `src/lib/brand/mark-version.ts`,
-which is the first 8 hex characters of the sha256 of `mark.ts`.
+one was missed; now every `?v=` (layout icons, the email lockup) imports
+`MARK_ASSET_VERSION` from `src/lib/brand/mark-version.ts`, which is the first
+8 hex characters of the sha256 of `mark.ts`. The social card is the one
+exception: its words can change while the mark does not, so `OG_IMAGE_PATH`
+carries `OG_CARD_VERSION` (`src/lib/brand/og-version.ts`), the hash of
+`public/og.png` itself, and `og-version.test.ts` fails with the value to paste
+whenever a regenerated card is committed without it.
 `src/lib/brand/mark-version.test.ts` fails on a mark change until:
 
 - `MARK_ASSET_VERSION` is updated to the new hash (the failure prints it),

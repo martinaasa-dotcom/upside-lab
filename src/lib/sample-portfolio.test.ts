@@ -4,16 +4,8 @@ import { join } from "node:path";
 import {
   SAMPLE_CASH,
   SAMPLE_HOLDINGS,
-  SAMPLE_NEWS_TICKER,
   sampleAllTimeDollars,
-  sampleBiggestMarketMover,
-  sampleDayDollars,
-  sampleDayFractionTotal,
-  sampleDayTotal,
   sampleDemoStore,
-  sampleFallingCount,
-  sampleMovers,
-  sampleShareOfPortfolio,
   sampleStocksValue,
   sampleTotalValue,
   sampleValue,
@@ -56,57 +48,12 @@ describe("the sample portfolio adds up", () => {
     expect(sampleTotalValue()).toBeCloseTo(parts + SAMPLE_CASH, 6);
   });
 
-  it("keeps the biggest movers smaller than the day they are part of", () => {
-    /*
-      The failure this is here for: three movers summing to exactly the
-      day's move, which quietly asserts that every other company was flat.
-      They are a part of the day, so their sum has to be strictly inside it.
-    */
-    const day = sampleDayTotal();
-    const listed = sampleMovers(3).reduce(
-      (sum, row) => sum + sampleDayDollars(row),
-      0
-    );
-    expect(day).toBeLessThan(0);
-    expect(listed).toBeGreaterThan(day);
-  });
-
-  it("lists the movers biggest first, and leaves nothing bigger out", () => {
-    const listed = sampleMovers(3);
-    const smallestListed = Math.min(
-      ...listed.map((row) => Math.abs(sampleDayDollars(row)))
-    );
-    const left = SAMPLE_HOLDINGS.filter((row) => !listed.includes(row));
-    for (const row of left) {
-      expect(Math.abs(sampleDayDollars(row))).toBeLessThanOrEqual(
-        smallestListed
-      );
-    }
-  });
-
-  it("is a red day with one company out on its own", () => {
-    // The point of the sample: a fall that is the market, plus one company
-    // that had news. The walkthrough plays the same day, so its rules hold.
-    expect(sampleFallingCount()).toBe(8);
-    expect(sampleDayFractionTotal()).toBeLessThan(0);
-    const biggest = sampleBiggestMarketMover();
-    expect(biggest.ticker).not.toBe(SAMPLE_NEWS_TICKER);
-  });
-
   it("has some holdings up on what was paid and some down", () => {
     const up = SAMPLE_HOLDINGS.filter((r) => r.price > r.buyPrice);
     const down = SAMPLE_HOLDINGS.filter((r) => r.price < r.buyPrice);
     expect(up.length).toBeGreaterThan(0);
     expect(down.length).toBeGreaterThan(0);
     expect(sampleAllTimeDollars()).toBeGreaterThan(0);
-  });
-
-  it("puts the company with news at the share of the portfolio the page says", () => {
-    const share = sampleShareOfPortfolio(SAMPLE_NEWS_TICKER);
-    expect(share).toBeGreaterThan(0);
-    expect(share).toBeLessThan(1);
-    // Big enough to be worth a sentence, small enough not to be the day.
-    expect(share).toBeLessThan(0.2);
   });
 
   it("holds a little cash and never borrows any", () => {
@@ -183,5 +130,23 @@ describe("what the landing page is allowed to say about the sample", () => {
   it("says out loud that the holdings are invented and the prices are not", () => {
     expect(landing).toMatch(/made up/i);
     expect(landing).toMatch(/prices are real/i);
+  });
+
+  it("types no film figure into the parts of it that live in their own files", () => {
+    /*
+      The hero film and the feature tiles moved out of this file, and they
+      print more figures than the page ever did. The same rule follows them:
+      every number is worked out in `landing-film.ts`, never typed beside
+      the words it belongs to.
+    */
+    for (const file of [
+      "src/components/landing/PulseFilm.tsx",
+      "src/components/landing/FeatureTiles.tsx",
+    ]) {
+      const src = readFileSync(join(process.cwd(), file), "utf8");
+      expect(src.match(/"[^"]*\$[\d,]+(\.\d+)?[^"]*"/g) ?? [], file).toEqual([]);
+      // A percent written as JSX text, between a tag and the next one.
+      expect(src.match(/>[^<>{}"\n]*?[-+]?\d+(\.\d+)?%[^<>{}"\n]*</g) ?? [], file).toEqual([]);
+    }
   });
 });

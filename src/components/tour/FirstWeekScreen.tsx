@@ -2,54 +2,32 @@
 
 import { Switch } from "@/components/ui/switch";
 import { FieldLabel } from "@/components/ui/field";
-import { TourAsk } from "@/components/tour/TourRow";
-import { cn } from "@/lib/format";
 import { SUNDAY_EMAIL_LINE } from "@/lib/product";
-import { Check, Circle } from "lucide-react";
+import { Activity, MessageCircle, Plus } from "lucide-react";
 
 /*
   The last screen, and the only one that looks forward.
 
-  It used to be a card saying "that is the whole app" over three rows about
-  where things are, which is a summary of a walkthrough the reader has just
-  finished and does not need again. What somebody actually leaves with is
-  the first thing to do next, so this is a short list with the first line
-  already ticked: something was learned, and here are the three small
-  things that turn one visit into a habit.
-
-  The Sunday email sits on its own line rather than as a screen of its own,
-  because it is one switch and a sentence, and a whole screen for a switch
-  is a screen somebody presses Next on.
+  It used to be a checklist of four sentences with the first one already
+  ticked, under a heading, over the email switch and its own paragraph.
+  Every line was true and the screen was still a page of reading at the
+  moment somebody wants to start. So it is three things to try, as a mark
+  and a few words each, and the one switch.
 
   Two promises are exact here. The description of the email is
   `SUNDAY_EMAIL_LINE`, which is the same sentence the landing page and
   Account print, so nobody is told two different things about one mail.
   And the one other mail this app can send is admitted out loud: a reader
   whose portfolio is still empty a week from now gets a single reminder,
-  which the old copy denied in as many words while a cron sent it daily at
-  14:00.
+  which an old version of this screen denied in as many words while a cron
+  sent it.
 */
 
-type Step = { done: boolean; text: string };
-
-const STEPS: Step[] = [
-  {
-    done: true,
-    text: "You have been round the app once, which is the part most people never do.",
-  },
-  {
-    done: false,
-    text: "One evening after the market shuts, open Pulse and see what it says happened.",
-  },
-  {
-    done: false,
-    text: "Ask Margus one question about a company you own.",
-  },
-  {
-    done: false,
-    text: "Add the next company from the same Add holding button on Home.",
-  },
-];
+const NEXT = [
+  { icon: Activity, text: "Open Pulse after the market shuts" },
+  { icon: MessageCircle, text: "Ask Margus about anything you own" },
+  { icon: Plus, text: "Add the next company from Home" },
+] as const;
 
 export function FirstWeekScreen({
   noteSunday,
@@ -59,42 +37,52 @@ export function FirstWeekScreen({
   onNoteSunday: (next: boolean) => void;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <TourAsk>Four small things, and the first one is done.</TourAsk>
+    <div className="flex flex-col gap-5">
+      <div className="flex justify-center py-1" aria-hidden>
+        <svg viewBox="0 0 64 64" className="tour-done size-16">
+          <circle
+            cx="32"
+            cy="32"
+            r="29"
+            fill="none"
+            stroke="var(--primary)"
+            strokeWidth="2.5"
+            pathLength={1}
+            className="tour-done-ring"
+          />
+          <path
+            d="M20 33 l8 8 l16 -18"
+            fill="none"
+            stroke="var(--primary)"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pathLength={1}
+            className="tour-done-tick"
+          />
+        </svg>
+      </div>
 
       <ul className="flex flex-col gap-2">
-        {STEPS.map((step) => (
+        {NEXT.map((step, i) => (
           <li
             key={step.text}
-            className="card-sheen glass flex items-start gap-3 rounded-lg p-4"
+            className="tour-rise card-sheen glass-well flex items-center gap-3 rounded-xl px-4 py-3"
+            style={{ ["--rise" as string]: i }}
           >
-            {step.done ? (
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            ) : (
-              <Circle
-                className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-            )}
-            <span
-              className={cn(
-                "text-sm leading-relaxed",
-                step.done ? "text-foreground" : "text-muted-foreground"
-              )}
-            >
-              {step.text}
-            </span>
+            <step.icon className="size-4 shrink-0 text-primary" aria-hidden />
+            <span className="text-sm text-foreground">{step.text}</span>
           </li>
         ))}
       </ul>
 
-      <div className="card-sheen glass flex flex-col gap-2 rounded-lg p-4">
+      <div className="card-sheen glass flex flex-col gap-2 rounded-2xl p-4 ring-1 ring-foreground/15">
         <div className="flex items-center justify-between gap-3">
           <FieldLabel
             htmlFor="welcome-note-sunday"
-            className="min-w-0 flex-1 text-sm font-medium text-foreground"
+            className="min-w-0 flex-1 font-heading text-base font-semibold tracking-tight text-foreground"
           >
-            Send me the Sunday email
+            The Sunday email
           </FieldLabel>
           <Switch
             id="welcome-note-sunday"
@@ -102,14 +90,14 @@ export function FirstWeekScreen({
             onCheckedChange={onNoteSunday}
           />
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {SUNDAY_EMAIL_LINE} No daily note and no alerts, and one reminder
-          if your portfolio is still empty in a week.
+        <p className="text-sm leading-snug text-muted-foreground">
+          {SUNDAY_EMAIL_LINE} Plus one reminder if your portfolio is still
+          empty in a week.
         </p>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Account &rsaquo; Help replays this walkthrough any time.
+      <p className="text-center text-xs text-muted-foreground">
+        Account &rsaquo; Help replays this any time.
       </p>
     </div>
   );
