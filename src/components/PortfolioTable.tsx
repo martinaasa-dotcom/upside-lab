@@ -567,7 +567,13 @@ export const PortfolioTable = memo(function PortfolioTable({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/*
+          The row wraps. On a 360px phone Screenshot, CSV and Cash need about
+          20px more than the header has, and the panel clips its overflow,
+          so on one line the cash figure was cut off at the card's edge:
+          the one number in this row a reader came to read.
+        */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/*
             Import used to share one bordered well with the cash figure,
             so a document glyph appeared to belong to Cash. It is its own
