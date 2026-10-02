@@ -79,7 +79,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Rates +0.75%",
     driver: "Interest rates",
     headlinePct: -0.12,
-    mechanism: "When interest rates jump, pricey growth companies usually fall. Power companies and cash tend to hold up better.",
+    mechanism: "Pricey growth companies usually fall. Power companies and cash hold up better.",
   },
   {
     id: "tech_pullback10",
@@ -87,7 +87,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Tech −10%",
     driver: "Tech prices",
     headlinePct: -0.10,
-    mechanism: "Software, cloud, and chip companies fall together. Calmer businesses, energy, and cash usually hold up better.",
+    mechanism: "Software, cloud and chip companies fall together. Calmer businesses hold up better.",
   },
   {
     id: "oil_shock25",
@@ -95,7 +95,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Oil +25%",
     driver: "Oil and energy",
     headlinePct: 0.25,
-    mechanism: "Oil and energy prices go up, and power companies often follow them. Technology and retail companies usually end up paying more for energy.",
+    mechanism: "Energy companies rise with it. Technology and shops pay more for power.",
   },
   {
     id: "ai_down20",
@@ -103,7 +103,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "AI −20%",
     driver: "AI computer builders",
     headlinePct: -0.20,
-    mechanism: "Companies pause spending on AI computers. Cloud, chip makers, AI software, and data-center power all feel it.",
+    mechanism: "Companies pause spending on AI computers. Chips, cloud and AI software feel it.",
   },
   {
     id: "btc_winter35",
@@ -111,7 +111,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Crypto −35%",
     driver: "Crypto",
     headlinePct: -0.35,
-    mechanism: "Bitcoin falls hard. Companies that hold crypto, mine it or trade it fall first, and payment and growth companies often follow.",
+    mechanism: "Bitcoin falls hard. Companies that hold, mine or trade it fall first.",
   },
   {
     id: "broad_down15",
@@ -119,7 +119,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Market −15%",
     driver: "Everyone selling",
     headlinePct: -0.15,
-    mechanism: "Almost everything falls together, and the jumpiest holdings still fall further than the calm ones and further than the market as a whole.",
+    mechanism: "Almost everything falls, and the jumpiest holdings fall furthest.",
   },
   {
     id: "usd_surge7",
@@ -127,7 +127,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Dollar +7%",
     driver: "The dollar",
     headlinePct: 0.07,
-    mechanism: "A stronger US dollar makes European stocks and US companies that earn money abroad look weaker in dollars.",
+    mechanism: "European stocks, and US companies earning abroad, look weaker in dollars.",
   },
   {
     id: "china_supply_shock",
@@ -135,7 +135,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Chip shortage",
     driver: "Factories",
     headlinePct: -0.15,
-    mechanism: "Trouble making chips in Asia hits chip factories and the machines that make them. US software and energy usually hold up.",
+    mechanism: "Trouble in Asian chip factories hits chip makers. Software and energy hold up.",
   },
   {
     id: "soft_landing_rally",
@@ -143,7 +143,7 @@ export const SHOCKS: ShockDefinition[] = [
     shortLabel: "Rise +12%",
     driver: "People buying",
     headlinePct: 0.12,
-    mechanism: "Prices stop rising so fast and the economy holds up. Money tends to move into growth companies, technology, and whatever swings hardest.",
+    mechanism: "Price rises slow down and the economy holds up. Whatever swings hardest rises most.",
   },
 ];
 
@@ -305,7 +305,7 @@ const KIND_PROFILES: Record<string, TickerShockProfile> = {
   solar: { label: "Clean energy", ai: 0.35, crypto: 0.25, rates: -0.7, energy: 0.2, fx: -0.35, beta: 1.35, supplyChain: 0.45 },
   levered_growth: { label: "A fund that borrows to amplify its moves", ai: 1.55, crypto: 0.7, rates: -1.2, energy: -0.4, fx: -0.5, beta: 2.6, supplyChain: 0.9 },
   inverse: { label: "A fund that rises when shares fall", ai: -0.45, crypto: -0.25, rates: 0.25, energy: 0.05, fx: 0.1, beta: -1.0, supplyChain: -0.3 },
-  other: { label: "One company's shares", ai: 0.22, crypto: 0.2, rates: -0.45, energy: -0.18, fx: -0.3, beta: 1.05, supplyChain: 0.25 },
+  other: { label: "A company", ai: 0.22, crypto: 0.2, rates: -0.45, energy: -0.18, fx: -0.3, beta: 1.05, supplyChain: 0.25 },
 };
 
 function kindEntries(kind: string, tickers: string[]): [string, string][] {
