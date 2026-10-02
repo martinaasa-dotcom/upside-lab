@@ -524,7 +524,7 @@ export const LabSheet = memo(function LabSheet({
   const tabIntro: Record<LabTab, string> = {
     alloc:
       holdingCount === 0
-        ? "Where your money actually sits, grouped by company and by kind of business."
+        ? "Where your money sits, by company and kind of business."
         : holdingCount > 3
           ? /*
              * The noticing figure is the count of business kinds, not a
@@ -543,23 +543,23 @@ export const LabSheet = memo(function LabSheet({
              * never totals them.
              */
             `Where your money sits: ${holdingCount} holdings across ${sectorCount} ${sectorCount === 1 ? "kind" : "kinds"} of business.`
-          : `Where your money sits. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of this rides on ${topName ?? "them"}.`,
+          : `Where your money sits. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of it rides on ${topName ?? "them"}.`,
     risk:
       topName && holdingCount > 0
-        ? `What a rough day would do, and which companies move together. ${topName} is ${topWeight}% of your stocks.`
-        : "What a rough day would do, and which companies move together.",
+        ? `What a bad day costs, and what moves together. ${topName} is ${topWeight}% of your stocks.`
+        : "What a bad day costs, and what moves together.",
     trends:
       holdingCount === 0
-        ? "Whether each company is still moving the way it was."
-        : `Whether each company is still moving the way it was. ${risingCount} of ${holdingCount} ${holdingCount === 1 ? "is" : "are"} up on three months ago.`,
+        ? "Which companies are changing direction."
+        : `Which companies are changing direction. ${risingCount} of ${holdingCount} ${holdingCount === 1 ? "is" : "are"} up on three months ago.`,
     seasonality:
-      "Which months the market has usually been kind in, and which it has not.",
+      "Which months have been good or bad for the market.",
     playbook:
-      "Reading the market's mood, what a fall costs, and the ideas worth keeping.",
+      "The market's mood, what a fall costs, and ideas worth keeping.",
     lookup:
       holdingCount === 0
-        ? "Any company in plain words: what it does, its numbers, what it might be worth."
-        : "Any company in plain words, whether you own it or not.",
+        ? "Any company in plain words: what it does and what it might be worth."
+        : "Any company in plain words, owned or not.",
   };
 
   return (
@@ -695,7 +695,7 @@ export const LabSheet = memo(function LabSheet({
           {concentration.positionCount === 0 ? (
             <EmptyState
               title="Nothing to look at yet"
-              detail={`Add a holding to ${scopeLabel} and this fills in with how spread out you are.`}
+              detail={`Add a holding to ${scopeLabel} to see how spread out you are.`}
             />
           ) : (
             <>
@@ -718,11 +718,12 @@ export const LabSheet = memo(function LabSheet({
                     where the component hugs at `mt-2`. Two answers to one
                     question, decided by whether a panel happened to reach
                     for the component.
+
+                    No subtitle: the tab's own intro directly above already
+                    says how many kinds of business this is, and the legend
+                    names each one.
                   */}
-                  <PanelHeader
-                    title="What you're actually betting on"
-                    subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
-                  />
+                  <PanelHeader title="What you're actually betting on" />
                   <AllocationBar
                     size="lg"
                     slices={mix.map((m) => ({
@@ -807,8 +808,8 @@ export const LabSheet = memo(function LabSheet({
                     aria-label="How spread out, out of 100"
                   />
                   <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
-                    <span>0 is everything in one holding</span>
-                    <span className="text-right">100 is as spread out as an index fund</span>
+                    <span>0, one holding</span>
+                    <span className="text-right">100, an index fund</span>
                   </div>
                 </div>
 
@@ -836,7 +837,7 @@ export const LabSheet = memo(function LabSheet({
                       sub:
                         concentration.positionCount === 1
                           ? "Your only holding"
-                          : `holdings, of the ${concentration.positionCount} you own`,
+                          : `holdings, of ${concentration.positionCount}`,
                     },
                     {
                       label: <TermTip term="share-of-portfolio">Largest holding</TermTip>,
@@ -902,7 +903,7 @@ export const LabSheet = memo(function LabSheet({
                 */
                 subtitle={
                   Math.abs(scopedCash) >= 1
-                    ? `Shares of the ${currency(byTicker.reduce((a, s) => a + s.value, 0), 0)} invested, not counting cash.`
+                    ? `Of the ${currency(byTicker.reduce((a, s) => a + s.value, 0), 0)} invested, not counting cash.`
                     : undefined
                 }
               />
@@ -943,12 +944,11 @@ export const LabSheet = memo(function LabSheet({
         <Panel tone="plain" className="flex flex-col gap-4">
           <PanelHeader
             title="Do these move together?"
-            subtitle="Over the last 90 days. Near +1 two companies rise and fall as one, so owning both does not spread your risk."
+            subtitle="Last 90 days. Near +1, two companies move as one."
           />
           {corrHeat.tickers.length < 2 ? (
             <p className="text-sm text-muted-foreground">
-              You need at least two holdings with enough price history to
-              compare.
+              Needs two holdings with enough price history.
             </p>
           ) : (
             /* Header row is one shared 2rem band: column labels sit on the
