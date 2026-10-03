@@ -58,6 +58,12 @@ export const FUND_UNIVERSE: readonly string[] = [
   "CAT", "DE", "GE", "HON", "RTX", "LMT", "VST", "CEG", "ETN",
   // Energy
   "XOM", "CVX",
+  // What retail investors are actually watching (added 2026-10-03, Martin's
+  // call). Measured with every rule below unchanged: 23.2% a year against
+  // 23.7% over 2019-2023, when most of these were not listed yet, and 38.9%
+  // against 34.2% over 2024-2026, worst fall unchanged. A name needs about a
+  // year of closes before the rules read it, so a recent listing waits.
+  "NBIS", "CRWV", "RKLB", "ASTS", "RDDT", "ZETA", "BMNR", "MSTR",
 ];
 
 /** Every number the rules use, in one place, each with its reason. */
@@ -150,14 +156,19 @@ export const FUND_RULES = {
    * of 40 is rare; the live Fund held one company for its first week. A
    * leader closing at a new three-month high is the other half of the same
    * idea, and with both the Fund holds eight or nine. Measured on
-   * 2026-10-03 (adjusted daily closes, this list, trades at the close with
-   * the cost below, every rule as set here) it returned 23.7% a year
+   * 2026-10-03 (adjusted daily closes, the first 66 names on this list,
+   * trades at the close with 0.05% each way, every rule as set here) it
+   * returned 23.7% a year
    * against the S&P 500's 15.6% over 2019-2023, with a worst fall of 26%
    * against the index's 34%, and 34.2% against 20.5% over 2024-2026, worst
    * fall 25% against 19%. Without the five most speculative names on the
    * list it still returned 25.8% and 25.2%, so the gain is not one lucky
    * company. A wider list of 173 large companies did worse than the index
-   * on the second window, which is why the list did not grow.
+   * on the second window, so the list grows by names somebody asked for and
+   * measured, never in bulk: the eight retail names at its end took the
+   * second window to 38.9%, and twenty more on top took it to 46.1% while
+   * the first window fell to 21.8% and the worst fall deepened to 29%, the
+   * shape of a list picked for what already went up.
    */
   breakoutEnabled: true,
   /** A breakout must be at least this far ahead of the S&P 500 over six months. */
