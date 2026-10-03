@@ -210,7 +210,12 @@ function Blank({
       ref={triggerRef}
       type="button"
       aria-label={label}
-      className="inline rounded-sm px-0.5 font-medium text-foreground underline decoration-primary/60 decoration-dashed decoration-[1.5px] underline-offset-[5px] transition-colors hover:bg-foreground/[0.06] hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [box-decoration-break:clone]"
+      /*
+        The hit area reaches past the word with a pseudo-element, which
+        leaves the sentence's own line spacing alone: measured at 390,
+        each word was a 28px target on a phone, and "67" was 22px wide.
+      */
+      className="relative inline rounded-sm px-0.5 font-medium text-foreground before:absolute before:-inset-x-1.5 before:-inset-y-2 before:content-[''] underline decoration-primary/60 decoration-dashed decoration-[1.5px] underline-offset-[5px] transition-colors hover:bg-foreground/[0.06] hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [box-decoration-break:clone]"
     >
       {value}
     </button>

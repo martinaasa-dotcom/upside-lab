@@ -990,18 +990,34 @@ export function marketWeight(
 export function pricedInSaid(assumed: number | null, range: BelievableRange): string | null {
   if (assumed === null) return null;
   const pct = (n: number) => percent(Math.abs(n), 0);
-  const moves = (n: number) => `${n >= 0 ? "grows" : "shrinks"} about ${pct(n)} a year`;
-  const lead = `At this price the market is assuming its profit ${moves(assumed)} for ten years, starting from next year's.`;
-  const span = range.own
-    ? `this company's own bad and good decades have it ${range.low >= 0 ? "growing" : "moving"} between ${range.low < 0 ? "-" : ""}${pct(range.low)} and ${range.high < 0 ? "-" : ""}${pct(range.high)} a year`
-    : `the long record runs from about ${pct(RECORD_LOW)} shrinking to ${pct(RECORD_HIGH)} growing for companies that are not falling apart or among the very best`;
+  /*
+    The sign comes off the figure as printed, as `signedPercent` does. Read
+    off the raw rate, a decade shrinking by a hair printed "-0%", and a
+    profit assumed to grow by nothing "grows about 0% a year".
+  */
+  const shown = (n: number) => Math.round(n * 100);
+  const signed = (n: number) => `${shown(n) < 0 ? "-" : ""}${pct(n)}`;
+  const moves = (n: number) =>
+    shown(n) === 0
+      ? "stays about flat"
+      : `${n > 0 ? "grows" : "shrinks"} about ${pct(n)} a year`;
+  const lead = `At this price the market assumes its profit ${moves(assumed)} for ten years.`;
   if (assumed > range.high) {
-    return `${lead} That is past what ${span.replace(/^this company's own/, "its own")}, so the price has run ahead of the business and counts for less here.`;
+    const best = range.own
+      ? `its own good decades managed (${signed(range.high)} a year)`
+      : `ordinary companies manage on the long record (${pct(RECORD_HIGH)} a year)`;
+    return `${lead} That is more than ${best}, so the price has run ahead of the business and counts for less.`;
   }
   if (assumed < range.low) {
-    return `${lead} That is below even the bad case (${span}), so the price is doubting a profit the company has already shown and counts for less here.`;
+    const worst = range.own
+      ? `its own bad decades (${signed(range.low)} a year)`
+      : `the long record's bad case (${pct(RECORD_LOW)} shrinking a year)`;
+    return `${lead} That is worse than ${worst}, so the price is doubting a profit already shown and counts for less.`;
   }
-  return `${lead} That is inside what it could believably do (${span}), so the price keeps its full weight.`;
+  const span = range.own
+    ? `its own bad and good decades (${signed(range.low)} to ${signed(range.high)} a year)`
+    : `the long record for ordinary companies (${pct(RECORD_LOW)} shrinking to ${pct(RECORD_HIGH)} growing a year)`;
+  return `${lead} That is inside ${span}, so the price keeps its full weight.`;
 }
 
 /** What the market is paying, as a line in the blend. */

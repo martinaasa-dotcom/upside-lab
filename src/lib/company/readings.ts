@@ -338,7 +338,7 @@ function priceTagReading(f: CompanyFacts): CompanyReading {
     has(shown) ? `${number(shown, 1)}x` : NO_VALUE,
     plain,
     has(trailing) && isForward
-      ? `${number(trailing, 1)}x on last year's profit. The market has averaged near ${MARKET_MULTIPLE}x, and the gap is the growth the price counts on.`
+      ? `${number(trailing, 1)}x on last year's profit, so the gap between the two is the growth the price counts on. The market has averaged near ${MARKET_MULTIPLE}x.`
       : `The market has averaged near ${MARKET_MULTIPLE}x. Higher means more has to go right.`,
     "neutral",
     "price-to-earnings",

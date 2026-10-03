@@ -611,13 +611,19 @@ export function AccountPage() {
               <h1 className="truncate text-2xl font-semibold">
                 {displayName.trim() || "Your account"}
               </h1>
+              {/*
+                The address and how it signed in are two lines, so a phone
+                truncates neither: as one truncated line it read
+                "anna.berg@example.com, signed in with Go...".
+              */}
               <p className="truncate text-sm text-muted-foreground">
-                {user?.email
-                  ? signedInWithGoogle
-                    ? `${user.email}, signed in with Google`
-                    : user.email
-                  : "Demo. Nothing you change here is saved."}
+                {user?.email ?? "Demo. Nothing you change here is saved."}
               </p>
+              {user?.email && signedInWithGoogle ? (
+                <p className="text-sm text-muted-foreground">
+                  Signed in with Google
+                </p>
+              ) : null}
             </div>
           </div>
 

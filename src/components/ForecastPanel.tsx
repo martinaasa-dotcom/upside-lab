@@ -529,7 +529,8 @@ function ForecastCard({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={railId}
-        className="flex items-center gap-1 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
+        // A 20px row; the pseudo-element is the 44px a thumb needs.
+        className="relative flex items-center gap-1 text-sm text-muted-foreground outline-none before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
       >
         {open ? "Show less" : "Every year"}
         <ChevronDown

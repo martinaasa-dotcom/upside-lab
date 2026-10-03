@@ -437,7 +437,12 @@ export function PlanLadderPanel({
         icon={<ListOrdered className="h-4 w-4" />}
         actions={
           ladder.spot !== null ? (
-            <div className="flex flex-col items-end gap-1">
+            /*
+              Below `sm` the actions take a row of their own under the
+              title, so the label sits flush left under the figure rather
+              than hanging off its right end.
+            */
+            <div className="flex flex-col items-start gap-1 sm:items-end">
               <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
                 {currency(ladder.spot, 2, code)}
               </span>

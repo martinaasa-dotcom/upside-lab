@@ -613,12 +613,17 @@ export const PortfolioTable = memo(function PortfolioTable({
               <span className="sm:hidden">CSV</span>
             </Button>
           )}
-          <div className="card-sheen glass-well flex items-center gap-1 rounded-lg py-1 pl-1 pr-1">
+          {/*
+            The well hugs the button, as tall as the two buttons beside it.
+            It carried its own padding around a 44px touch target, so on a
+            phone the cash stood 52px tall in a row of 44px buttons.
+          */}
+          <div className="card-sheen glass-well flex items-center rounded-lg">
             <button
               type="button"
               onClick={canCash ? onEditCash : undefined}
               disabled={!canCash}
-              className="touch-target inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              className="touch-target inline-flex h-8 items-center gap-2 rounded-lg px-3 text-left transition hover:bg-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:active:scale-100"
               title={canCash ? "Edit cash (stored in USD)" : tradeLock?.message}
             >
               <span className="text-sm font-medium text-muted-foreground">

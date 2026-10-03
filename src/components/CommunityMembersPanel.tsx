@@ -203,16 +203,16 @@ export function CommunityMembersPanel({
                         return (
                           <li
                             key={m.user_id}
-                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                            className="flex items-start justify-between gap-3 px-4 py-3 sm:items-center"
                           >
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedOwnerId(m.user_id);
                               }}
-                              className="text-left"
+                              className="min-w-0 flex-1 text-left"
                             >
-                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground">
                                 {profileName(m.user_id)}
                                 {m.is_you && (
                                   <span className="text-sm text-muted-foreground">
@@ -289,7 +289,13 @@ export function CommunityMembersPanel({
                                     variant="ghost"
                                     size="icon-sm"
                                     disabled={busy}
-                                    className="touch-target"
+                                    /*
+                                      Beside the name, never under it. The
+                                      row wrapped, so on a phone this glyph
+                                      took a line of its own below every
+                                      member and the rows alternated height.
+                                    */
+                                    className="touch-target -mr-2 -mt-1 shrink-0 sm:mt-0"
                                     aria-label={`Options for ${profileName(m.user_id)}`}
                                   >
                                     <MoreHorizontal />
@@ -331,6 +337,7 @@ export function CommunityMembersPanel({
                                 variant="outline"
                                 size="sm"
                                 disabled={busy}
+                                className="shrink-0"
                                 onClick={() => setLeaveOpen(true)}
                               >
                                 <LogOut data-icon="inline-start" />
@@ -361,14 +368,14 @@ export function CommunityMembersPanel({
                         return (
                           <li
                             key={ownerKey}
-                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                            className="flex items-start justify-between gap-3 px-4 py-3 sm:items-center"
                           >
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedOwnerId(ownerKey);
                               }}
-                              className="text-left"
+                              className="min-w-0 flex-1 text-left"
                             >
                               <div className="text-sm font-medium text-foreground">
                                 {p.label}
@@ -601,7 +608,13 @@ export function CommunityMembersPanel({
                             const live = inv.status === "live";
                             return (
                               <Item key={inv.id} variant="outline">
-                                <ItemContent>
+                                {/*
+                                  The text takes the whole row on a phone
+                                  and the two buttons go under it. Side by
+                                  side they left the text a column one
+                                  letter wide.
+                                */}
+                                <ItemContent className="basis-full sm:basis-0">
                                   <ItemTitle>
                                     {creatorName}
                                   </ItemTitle>
@@ -626,7 +639,7 @@ export function CommunityMembersPanel({
                                     </ItemDescription>
                                   ) : null}
                                 </ItemContent>
-                                <ItemActions>
+                                <ItemActions className="flex-wrap">
                                   {live ? (
                                     <Button
                                       type="button"

@@ -73,6 +73,7 @@ import {
 import {
   fundQuoteCoverage,
   fundTotalReturn,
+  fundDayBaseline,
   liveFundTodayMove,
   liveFundTotalValue,
   spyReturnSince,
@@ -104,8 +105,6 @@ import {
 import {
   ArrowDownToLine,
   ChevronRight,
-  Minus,
-  Plus,
   Scissors,
   TrendingUp,
 } from "lucide-react";
@@ -1492,13 +1491,12 @@ export function UpsidePortfolioPage() {
     liveTotal: totalValue,
     startingCapital: fund?.starting_capital,
   });
+  const dayBaseline = fundDayBaseline(reports);
   const { todayDollar, todayPct } = liveFundTodayMove({
     liveTotal: totalValue,
-    lastReportValue: latestReport?.portfolio_value,
+    lastReportValue: dayBaseline,
   });
-  const hasYesterday =
-    latestReport?.portfolio_value != null &&
-    Number.isFinite(latestReport.portfolio_value);
+  const hasYesterday = dayBaseline != null && Number.isFinite(dayBaseline);
   /*
    * How much of "Total value" is a live price and how much is what he
    * paid. See `fundQuoteCoverage`: the fallback is right and saying
@@ -2435,16 +2433,17 @@ export function UpsidePortfolioPage() {
                           ) : (
                             <span
                               className={cn(
-                                "flex items-center gap-1 font-mono text-sm font-semibold tabular-nums",
+                                "font-mono text-sm font-semibold tabular-nums",
                                 signedTone(made, "text-muted-foreground")
                               )}
                             >
-                              {made >= 0 ? (
-                                <Plus className="h-3 w-3" aria-hidden />
-                              ) : (
-                                <Minus className="h-3 w-3" aria-hidden />
-                              )}
-                              {currency(Math.abs(made), 0)}
+                              {/*
+                                The sign is a character, as on every other
+                                figure in the app. A plus and minus glyph
+                                drawn as icons stood a gap apart from the
+                                amount and read as a bullet.
+                              */}
+                              {signedCurrency(made, 0)}
                             </span>
                           )}
                         </div>

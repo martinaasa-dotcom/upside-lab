@@ -117,7 +117,8 @@ export function RecoveryGap() {
                 onClick={() => setFall(f)}
                 aria-pressed={fall === f}
                 className={cn(
-                  "rounded-full border border-border px-3 py-1.5 font-mono text-xs tabular-nums transition hover:bg-hover",
+                  // 40px tall on a phone, where they were 30px pills a thumb missed.
+                  "inline-flex min-h-10 items-center rounded-full border border-border px-3 py-1.5 font-mono text-xs tabular-nums transition hover:bg-hover active:scale-[0.97] motion-reduce:active:scale-100 sm:min-h-0",
                   fall === f ? "bg-foreground/10 text-foreground" : "text-muted-foreground"
                 )}
               >

@@ -603,8 +603,17 @@ function LookAroundStrip({
         beside a sentence that already names the sample.
       */}
       <div className="flex flex-row items-center gap-3 rounded-xl glass-overlay ring-1 ring-foreground/20 px-3.5 py-2.5 sm:gap-4 sm:p-4">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">
-          A sample: the holdings are made up and the prices are real.
+        {/*
+          The phone says both halves in four words. The whole sentence
+          wrapped to three lines beside the two buttons there and stood
+          87px tall over the room; this is two short lines, as tall as
+          the buttons beside it.
+        */}
+        <p className="min-w-0 flex-1 text-sm leading-snug text-foreground sm:leading-relaxed">
+          <span className="sm:hidden">Sample holdings, real prices.</span>
+          <span className="hidden sm:inline">
+            A sample: the holdings are made up and the prices are real.
+          </span>
         </p>
         <div className="flex shrink-0 gap-2">
           <Button type="button" size="sm" disabled={busy} onClick={onSignIn}>

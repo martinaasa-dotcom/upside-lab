@@ -91,11 +91,15 @@ const ALLOWED = new Map<string, string>([
     "Same barW as the row above, mirrored to the other side of the zero line.",
   ],
   [
-    "src/components/company/ValueGlance.tsx:254",
+    "src/components/company/ValueGlance.tsx:291",
+    "reachFrom and reachTo are each one of low, high and spot, all of which are inside the min/max the scale is built from, so the faint stretch stays inside the drawn scale by construction.",
+  ],
+  [
+    "src/components/company/ValueGlance.tsx:299",
     "at(low) and at(high) are computed from a from/span that is built from Math.min/Math.max over {low, high, spot, blend} plus padding, so both ends fall inside the drawn scale by construction.",
   ],
   [
-    "src/components/company/ValueGlance.tsx:444",
+    "src/components/company/ValueGlance.tsx:513",
     "width is Math.min(Math.abs(gap) / 0.6, 1) * 50, already capped at 50 before Math.max(width, 1.5) only raises a floor.",
   ],
 ]);

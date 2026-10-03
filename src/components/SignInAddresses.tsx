@@ -185,9 +185,14 @@ export function SignInAddresses() {
         subtitle="Every address here opens this one account, with Google or an emailed link."
       />
 
+      {/*
+        An address wraps rather than truncating: which mailbox opens this
+        account is the whole point of the row, and on a phone the remove
+        button left "anna@work.exampl..." for the reader to guess at.
+      */}
       <div className="flex flex-col gap-2">
         <div className={ROW}>
-          <span className="min-w-0 flex-1 truncate font-mono text-sm">
+          <span className="min-w-0 flex-1 font-mono text-sm [overflow-wrap:anywhere]">
             {list.primaryEmail}
           </span>
           <Badge variant="outline">Main</Badge>
@@ -195,7 +200,7 @@ export function SignInAddresses() {
 
         {list.addresses.map((address) => (
           <div key={address.id} className={ROW}>
-            <span className="min-w-0 flex-1 truncate font-mono text-sm">
+            <span className="min-w-0 flex-1 font-mono text-sm [overflow-wrap:anywhere]">
               {address.email}
             </span>
 

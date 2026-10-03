@@ -79,7 +79,7 @@ export function QuickStart({
           type="button"
           aria-expanded={showLives}
           onClick={() => setShowLives((v) => !v)}
-          className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground hover:text-muted-foreground"
+          className="relative inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-muted-foreground"
         >
           {chosen ? `Example life: ${chosen.label}` : "Start from an example life"}
           <ChevronDown

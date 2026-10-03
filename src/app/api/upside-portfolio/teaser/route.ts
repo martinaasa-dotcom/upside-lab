@@ -4,6 +4,7 @@ import { MARGUS_FUND_COLUMNS, PORTFELL_TABLES } from "@/lib/supabase/tables";
 import { fetchQuotesWithFallback } from "@/lib/market/quotes";
 import {
   fundDayNumber,
+  fundDayBaseline,
   liveFundTodayMove,
   liveFundTotalValue,
 } from "@/lib/margus-fund-mark";
@@ -62,7 +63,7 @@ const getCachedFundTeaser = unstable_cache(
     const [
       { data: fund, error: fundErr },
       { data: holdings, error: holdingsErr },
-      { data: latestReport, error: reportErr },
+      { data: recentReports, error: reportErr },
     ] = await Promise.all([
       supabase
         .from(PORTFELL_TABLES.margusFund)
@@ -77,9 +78,11 @@ const getCachedFundTeaser = unstable_cache(
         .from(PORTFELL_TABLES.margusFundReports)
         .select("headline, portfolio_value, cash, report_date")
         .order("report_date", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        // Two, because after the evening report the newest one is today's
+        // own close and "today" is measured against the one before it.
+        .limit(2),
     ]);
+    const latestReport = recentReports?.[0] ?? null;
     const { data: recentActions } = await supabase
       .from(PORTFELL_TABLES.margusFundReports)
       .select("report_date, actions")
@@ -115,8 +118,12 @@ const getCachedFundTeaser = unstable_cache(
       holdings: openHoldings,
       quotes,
     });
-    const lastValue = (latestReport as { portfolio_value?: number } | null)
-      ?.portfolio_value;
+    const lastValue = fundDayBaseline(
+      (recentReports ?? []) as {
+        report_date?: string;
+        portfolio_value?: number;
+      }[]
+    );
     const { todayDollar, todayPct } = liveFundTodayMove({
       liveTotal: totalValue,
       lastReportValue: lastValue,

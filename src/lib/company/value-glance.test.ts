@@ -226,7 +226,10 @@ describe("the valuation picture", () => {
   it("anchors the band's own figures and caption to the band", () => {
     expect(src).toMatch(/<Anchored left=\{lowLabel\}/);
     expect(src).toMatch(/<Anchored left=\{highLabel\}/);
-    expect(src).toMatch(/<Anchored left=\{bandMiddle\}/);
+    // The caption stands under the band, or under the band and the
+    // stretch of it that is today's price when that pulls the blend.
+    expect(src).toMatch(/<Anchored left=\{captionAt\}/);
+    expect(src).toMatch(/: bandMiddle;/);
     // Never back to a spread row pinned to the panel's two edges.
     expect(src).not.toMatch(/items-baseline justify-between[^>]*>\s*<span>\{currency\(low/);
   });
@@ -285,5 +288,27 @@ describe("the valuation picture", () => {
     expect(src).toMatch(/function spread\(/);
     expect(src).toMatch(/LABEL_GAP/);
     expect(src).toMatch(/EDGE_GAP/);
+  });
+
+  it("prints a narrow band's two ends once, as a range", () => {
+    // Measured at 390, "$292.35$300.64" printed as one word.
+    expect(src).toMatch(/const narrow = at\(high\) - at\(low\) < NARROW_BAND;/);
+    expect(src).toMatch(/\{currency\(low, 2, code\)\} to \{currency\(high, 2, code\)\}/);
+  });
+
+  it("takes a method row's sign and colour off the figure as printed", () => {
+    // A tenth of a per cent under today printed "-0%", and over it a green "+0%".
+    expect(src).toMatch(/\{signedPercent\(gap, 0\)\} against today/);
+    expect(src).not.toMatch(/gap >= 0 \? "text-gain" : "text-loss"/);
+  });
+});
+
+describe("the caption under the band counts what a reader can see", () => {
+  it("says both for two, and names today's price when it pulls the blend", async () => {
+    const { methodsCaption } = await import("@/components/company/ValueGlance");
+    expect(methodsCaption(1, false)).toBe("the one method below");
+    expect(methodsCaption(2, false)).toBe("both methods below");
+    expect(methodsCaption(3, false)).toBe("all 3 methods below");
+    expect(methodsCaption(2, true)).toBe("both methods below, plus today's price");
   });
 });

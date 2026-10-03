@@ -204,7 +204,10 @@ export function RecallCardPanel({
                 answered && !isAnswer && !chosen && "disabled:opacity-45"
               )}
             >
-              <span className="min-w-0 flex-1">{option}</span>
+              {/* The options are written as fragments ("above what you
+                  paid") so they read inside a sentence elsewhere; as a
+                  button each starts with a capital. */}
+              <span className="min-w-0 flex-1 first-letter:uppercase">{option}</span>
               {answered && isAnswer ? (
                 <Check aria-hidden className="answer-pop size-4 shrink-0" />
               ) : answered && chosen ? (

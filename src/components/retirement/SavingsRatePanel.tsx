@@ -542,7 +542,7 @@ function HabitBlock({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground hover:text-muted-foreground"
+        className="relative inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-muted-foreground"
       >
         Small things, every day
         <ChevronDown

@@ -262,13 +262,13 @@ function changeMyMindAnswer(input: {
       !personal
         ? `${currency(exitLevel, 2)}, the year's lowest, is ${percent(fall, 0)} under today. A fall below it is the clearest sign the case above has broken.`
         : input.exitFromYear
-        ? `${currency(exitLevel, 2)}, the year's lowest and the floor of your own fair value zones, is ${percent(fall, 0)} under today. A fall below it is the clearest sign the case above has broken.`
+        ? `${currency(exitLevel, 2)}, the year's lowest and the floor of your fair value zones, is ${percent(fall, 0)} under today. A fall below it is the clearest sign the case above has broken.`
         : `${currency(exitLevel, 2)}, the floor of your own fair value zones, is ${percent(fall, 0)} under today. Below it the estimates stop describing this company. It is yours to move.`
     );
   }
   if (input.nextEarnings) {
     parts.push(
-      "The next set of results checks this against what the company actually did."
+      "The next set of results will test it."
     );
   }
   if (againstPoint) {

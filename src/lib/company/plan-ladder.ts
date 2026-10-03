@@ -846,11 +846,11 @@ export function ladderRead(ladder: PlanLadder): string {
     chose a number they have never seen is the same mistake the strike
     alert made with a stock target the app had worked out for itself.
   */
-  const whose = ladder.edited ? "The nearest level you set" : "The nearest level in them";
+  const whose = ladder.edited ? "The nearest level you set" : "The nearest level";
   const distance = next
-    ? ` ${whose} is ${currency(next.price, 2)}, which is ${percent(Math.abs(next.price - spot) / spot, 1)} ${next.price > spot ? "above" : "below"} today.`
+    ? ` ${whose} is ${currency(next.price, 2)}, ${percent(Math.abs(next.price - spot) / spot, 1)} ${next.price > spot ? "above" : "below"}.`
     : "";
-  return `${currency(spot, 2)} today, which your fair value zones file under "${band.label}".${distance}`;
+  return `${currency(spot, 2)} today is "${band.label}" in your fair value zones.${distance}`;
 }
 
 /** The closest edge to a price, in either direction. */

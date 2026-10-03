@@ -114,6 +114,7 @@ function Ladder({
   blend,
   gap,
   estimates,
+  marketCounted,
   code,
 }: {
   low: number;
@@ -124,6 +125,8 @@ function Ladder({
   gap: number | null;
   /** Every surviving method's price, drawn as its own tick. */
   estimates: number[];
+  /** Whether today's price is one of the methods in the blend. */
+  marketCounted: boolean;
   code: string;
 }) {
   const values = [low, high, spot, ...(blend === null ? [] : [blend])];
@@ -151,6 +154,17 @@ function Ladder({
   */
   const [lowLabel, highLabel] = spread(clamp(low), clamp(high), EDGE_GAP);
   /*
+    TWO PRICES THAT CANNOT STAND APART ARE ONE RANGE.
+
+    The spread above keeps two anchors a sixth of the track apart, which
+    on a phone is about fifty pixels for two figures that each need about
+    fifty: measured at 390, "$292.35$300.64" printed as one word. Below
+    `NARROW_BAND` the band's two ends are said once, as a range, under the
+    band's own middle.
+  */
+  const narrow = at(high) - at(low) < NARROW_BAND;
+  const rangeAt = Math.min(Math.max((at(low) + at(high)) / 2, 26), 74);
+  /*
     A BAND WITH NO WIDTH IS NOT A BAND.
 
     One surviving method makes the low and the high the same number, and
@@ -170,6 +184,27 @@ function Ladder({
     on a phone whenever the estimates land at one end of the scale.
   */
   const bandMiddle = Math.min(Math.max((at(low) + at(high)) / 2, 22), 78);
+  /*
+    TODAY'S PRICE IS ONE OF THE VOICES, SO THE PICTURE SHOWS HOW FAR IT
+    PULLS.
+
+    The blend counts the market's own price as a method, and that price is
+    the gold mark rather than a tick. So whenever it carries weight the
+    fair value lands between today and the band, and a reader saw a bright
+    mark standing outside the grey stretch it was supposed to summarise.
+    A fainter stretch from today to the band is the part of the blend that
+    is today's price, and the caption under it says so.
+  */
+  const pulled =
+    marketCounted &&
+    hasBand &&
+    blend !== null &&
+    (blend < low || blend > high);
+  const reachFrom = pulled ? Math.min(spot, low) : low;
+  const reachTo = pulled ? Math.max(spot, high) : high;
+  const captionAt = pulled
+    ? Math.min(Math.max((at(reachFrom) + at(reachTo)) / 2, 34), 66)
+    : bandMiddle;
 
   return (
     /*
@@ -247,6 +282,16 @@ function Ladder({
           aria-hidden
           className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 rounded-full bg-foreground/[0.12]"
         />
+        {pulled && (
+          <span
+            aria-hidden
+            className="bar-reveal absolute inset-y-[3px] rounded-full bg-foreground/[0.06]"
+            style={{
+              left: `${at(reachFrom)}%`,
+              width: `${at(reachTo) - at(reachFrom)}%`,
+            }}
+          />
+        )}
         {hasBand && (
           <span
             aria-hidden
@@ -302,8 +347,18 @@ function Ladder({
       */}
       {hasBand && (
         <div className="relative mt-2 h-4 font-mono text-xs tabular-nums text-muted-foreground">
-          <Anchored left={lowLabel}>{currency(low, 2, code)}</Anchored>
-          <Anchored left={highLabel}>{currency(high, 2, code)}</Anchored>
+          {narrow ? (
+            <Anchored left={rangeAt}>
+              <span className="whitespace-nowrap">
+                {currency(low, 2, code)} to {currency(high, 2, code)}
+              </span>
+            </Anchored>
+          ) : (
+            <>
+              <Anchored left={lowLabel}>{currency(low, 2, code)}</Anchored>
+              <Anchored left={highLabel}>{currency(high, 2, code)}</Anchored>
+            </>
+          )}
         </div>
       )}
       {/*
@@ -313,11 +368,9 @@ function Ladder({
         reader can pair it with the thing it names.
       */}
       <div className="relative mt-1 h-4">
-        <Anchored left={bandMiddle}>
-          <span className="text-xs text-muted-foreground">
-            {estimates.length === 1
-              ? "the one method below"
-              : `all ${estimates.length} methods below`}
+        <Anchored left={captionAt}>
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {methodsCaption(estimates.length, pulled)}
           </span>
         </Anchored>
       </div>
@@ -335,6 +388,22 @@ function Ladder({
 const LABEL_GAP = 30;
 /** The band's own two figures are shorter, so they may stand closer. */
 const EDGE_GAP = 16;
+/** Narrower than this, the band's two ends are printed once as a range. */
+const NARROW_BAND = 24;
+
+/**
+ * The line under the band, counting the ticks a reader can see. "All 2"
+ * is how a form letter counts; two is "both".
+ */
+export function methodsCaption(count: number, withToday: boolean): string {
+  const ticks =
+    count === 1
+      ? "the one method below"
+      : count === 2
+        ? "both methods below"
+        : `all ${count} methods below`;
+  return withToday ? `${ticks}, plus today's price` : ticks;
+}
 
 /**
  * Push two label anchors apart to a readable distance, symmetrically,
@@ -528,14 +597,23 @@ function MethodRow({
         {gap !== null && !method.dropped && (
           <span className="inline-flex items-center gap-2">
             <GapBar gap={gap} />
+            {/*
+              The sign and the colour come off the figure as printed. Read
+              off the raw gap, a method a tenth of a per cent under today
+              printed "-0%" and one a tenth over printed a green "+0%":
+              a direction stated about a distance that rounds to nothing.
+            */}
             <span
               className={cn(
                 "font-mono tabular-nums",
-                gap >= 0 ? "text-gain" : "text-loss"
+                Math.round(gap * 100) > 0
+                  ? "text-gain"
+                  : Math.round(gap * 100) < 0
+                    ? "text-loss"
+                    : "text-muted-foreground"
               )}
             >
-              {gap >= 0 ? "+" : ""}
-              {percent(gap, 0)} against today
+              {signedPercent(gap, 0)} against today
             </span>
           </span>
         )}
@@ -642,6 +720,9 @@ export function ValueGlance({
           estimates={read.estimate.used
             .filter((m) => m.id !== "market")
             .map((m) => m.price)}
+          marketCounted={read.estimate.used.some(
+            (m) => m.id === "market" && m.weight > 0
+          )}
           code={code}
         />
       ) : null}

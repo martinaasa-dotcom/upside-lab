@@ -430,36 +430,45 @@ export function CommunitiesList() {
                           (path) => router.push(path)
                         );
                       }}
-                      className="flex items-center justify-between gap-3 px-4 py-4 transition hover:bg-hover"
+                      className="flex items-center gap-3 px-4 py-4 transition hover:bg-hover"
                     >
-                      <span className="flex min-w-0 items-center gap-2">
-                        {c.kind === "classroom" ? (
-                          <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary/80" />
-                        ) : c.visibility === "public" ? (
-                          <Globe className="h-3.5 w-3.5 shrink-0 text-primary" />
-                        ) : (
-                          <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="min-w-0 truncate text-base font-semibold text-foreground">
-                          {c.name}
+                      {/*
+                        The name has a line of its own on a phone, with the
+                        details under it. In one row the count and the badge
+                        kept their width and the circle's own name was cut
+                        to "Economi..." and "Sunday coffe...".
+                      */}
+                      <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                        <span className="flex min-w-0 items-center gap-2">
+                          {c.kind === "classroom" ? (
+                            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary/80" />
+                          ) : c.visibility === "public" ? (
+                            <Globe className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          ) : (
+                            <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="min-w-0 truncate text-base font-semibold text-foreground">
+                            {c.name}
+                          </span>
                         </span>
-                        {c.kind === "classroom" ? (
-                          <span className="shrink-0 text-sm text-muted-foreground">
-                            Class
-                          </span>
-                        ) : null}
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-[1.375rem] text-sm text-muted-foreground sm:flex-1 sm:flex-nowrap sm:pl-0">
+                          {c.kind === "classroom" ? (
+                            <span className="shrink-0">Class</span>
+                          ) : null}
+                          {people ? (
+                            <span className="shrink-0 sm:ml-auto">{people}</span>
+                          ) : null}
+                          {c.role === "admin" ? (
+                            <Badge
+                              variant="secondary"
+                              className={cn(!people && "sm:ml-auto")}
+                            >
+                              Admin
+                            </Badge>
+                          ) : null}
+                        </span>
                       </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        {people ? (
-                          <span className="text-sm text-muted-foreground">
-                            {people}
-                          </span>
-                        ) : null}
-                        {c.role === "admin" ? (
-                          <Badge variant="secondary">Admin</Badge>
-                        ) : null}
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </Link>
                   </li>
                   );
