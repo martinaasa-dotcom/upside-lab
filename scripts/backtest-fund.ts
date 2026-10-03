@@ -4,7 +4,8 @@
  * Every measurement quoted in `src/lib/fund-strategy.ts` came from this:
  * adjusted daily closes from the same feed the Fund trades on, the Fund's
  * own `readTicker` and `planTrades` called once per trading day exactly as
- * the cron calls them, trades at the close with `costPerTrade` each way,
+ * the cron calls them, trades at the close with `MEASURED_COST` each way
+ * (the live Fund trades free, so a backtest that charges is the cautious one),
  * and the S&P 500 bought and held as the yardstick. Nothing here re-states
  * a rule, so a backtest and the live Fund cannot drift apart.
  *
@@ -35,6 +36,8 @@ const WINDOWS: [string, string][] = [
   ["2019-01-02", "2023-12-29"],
   ["2024-01-02", "2026-10-02"],
 ];
+/** What each trade is charged here, each way, whatever the live Fund pays. */
+const MEASURED_COST = 0.0005;
 /** Enough closes behind any day for a 200-day average and a 126-day return. */
 const LOOKBACK = 400;
 
@@ -185,7 +188,7 @@ async function main() {
   const refresh = process.argv.includes("--refresh");
   const data = await loadCloses([FUND_BENCHMARK, ...FUND_UNIVERSE], refresh);
   for (const [from, to] of WINDOWS) {
-    console.log(backtest(data, FUND_UNIVERSE, FUND_RULES, from, to));
+    console.log(backtest(data, FUND_UNIVERSE, { ...FUND_RULES, costPerTrade: MEASURED_COST }, from, to));
   }
 }
 

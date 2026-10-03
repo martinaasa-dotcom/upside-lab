@@ -130,8 +130,14 @@ export const FUND_RULES = {
   sellRestOnSecondPush: true,
   /** In a market downtrend at most this much of the fund is in companies. */
   riskOffExposure: 0.4,
-  /** A trade costs this much each way, so the backtest is not free. */
-  costPerTrade: 0.0005,
+  /**
+   * What a trade costs, each way. Nothing (Martin's call, 2026-10-03): the
+   * Fund is a pretend $100,000 and should read as exactly that on its first
+   * day, not $99,950. Every measurement quoted in this file was taken at
+   * 0.05% each way (`scripts/backtest-fund.ts` still measures at that), so
+   * those figures are the cautious side of what these rules do here.
+   */
+  costPerTrade: 0,
   /** Short leadership window: about three months. */
   strengthShortDays: 63,
   /** Breakout: a close above the highest close of this many days. */
