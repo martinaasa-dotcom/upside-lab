@@ -660,12 +660,17 @@ export const CoveredCallPanel = memo(function CoveredCallPanel({
       ) : null}
       {modal}
 
-      <div className="surface-gutter pt-6">
+      {/*
+        The heading has the same 16px under it that "Your calls" has
+        under its own. It had 24px above and nothing below, so it sat on
+        the table's column labels and read as one of them.
+      */}
+      <div className="surface-gutter pt-6 pb-4">
         <h3 className="text-base font-semibold text-foreground">Suggested calls</h3>
       </div>
 
       {/* Mobile cards */}
-      <div className="flex flex-col gap-3 surface-gutter py-6 md:hidden">
+      <div className="flex flex-col gap-3 surface-gutter pb-6 md:hidden">
         {rows.length === 0 ? (
           <EmptyState
             title="Nothing to write calls on yet"

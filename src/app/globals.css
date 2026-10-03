@@ -793,6 +793,31 @@ body {
   }
 
   /*
+   * THE HEADER CARRIES ITS OWN DITHER, BECAUSE ITS BLUR ERASES THE FIELD'S.
+   *
+   * The field under the header is dithered (`AmbientDither`), two levels
+   * of signed grain that turn a staircase of 1/255 steps into a gradient.
+   * A 40px blur averages that grain to its mean, which is the staircase
+   * again, and `saturate(1.9)` then widens each step: measured at 1920
+   * with real compositing, the pixel-to-pixel variation inside the header
+   * was 0.03 against 2.10 on the field beside it, with flat runs of 63px,
+   * and a reader saw a vertical band in the header's left corner. The
+   * filter puts the same grain back over the blurred result (variation
+   * 2.48, no flat run over 5px, a lift of one level of 255) and the blur
+   * itself is unchanged.
+   *
+   * Laptop width and up only. That is where the band was seen and where
+   * it was measured; the phone's bar is a short strip in the corner the
+   * field is darkest, and a filter on an element that also blurs its
+   * backdrop is the one combination this file has not measured in WebKit.
+   */
+  @media (min-width: 768px) {
+    .chrome-pane {
+      filter: url(#ambient-dither);
+    }
+  }
+
+  /*
    * Overlay glass — menus, selects, popovers, dialogs, sheets, drawers.
    *
    * Everything under these is a refractive surface, and an opaque slab
