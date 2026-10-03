@@ -29,19 +29,32 @@ alter table public.portfell_margus_fund_holdings_archive_v2 enable row level sec
 alter table public.portfell_margus_fund_reports_archive_v2 enable row level security;
 alter table public.portfell_margus_fund_weekly_recaps_archive_v2 enable row level security;
 
-delete from public.portfell_margus_fund_holdings;
-delete from public.portfell_margus_fund_reports;
-delete from public.portfell_margus_fund_weekly_recaps;
-delete from public.portfell_margus_fund_runs;
+-- Guarded on 2026-10-03, after this file turned out never to have been
+-- applied: the run it was written to end carried on under the SPY code,
+-- and the Fund was restarted through the API on 2026-10-03 instead (see
+-- 20261003120000). Applied now, it must not wipe that newer run, so the
+-- reset only happens on a Fund that started before this file was written.
+do $$
+begin
+  if coalesce(
+    (select inception_date from public.portfell_margus_fund where id = 'main'),
+    date '1900-01-01'
+  ) < date '2026-09-27' then
+    delete from public.portfell_margus_fund_holdings;
+    delete from public.portfell_margus_fund_reports;
+    delete from public.portfell_margus_fund_weekly_recaps;
+    delete from public.portfell_margus_fund_runs;
 
-update public.portfell_margus_fund
-set cash = 100000,
-    starting_capital = 100000,
-    inception_date = current_date,
-    watchlist = '[]'::jsonb,
-    cash_purpose = null,
-    updated_at = now()
-where id = 'main';
+    update public.portfell_margus_fund
+    set cash = 100000,
+        starting_capital = 100000,
+        inception_date = current_date,
+        watchlist = '[]'::jsonb,
+        cash_purpose = null,
+        updated_at = now()
+    where id = 'main';
+  end if;
+end $$;
 
 insert into public.portfell_margus_fund (id, cash, starting_capital, inception_date)
 values ('main', 100000, 100000, current_date)
