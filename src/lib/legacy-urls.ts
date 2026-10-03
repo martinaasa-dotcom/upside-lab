@@ -67,12 +67,24 @@ const PATH_ALIASES: Record<string, string> = {
  * matters and its failure is silent: `?sheet=lab` is the Lab tab, not a
  * portfolio somebody called "lab", so the meta reading comes first.
  */
+/**
+ * A company page used to live at `/research/<ticker>` while the room inside
+ * the app lived at `/stock/<ticker>`. They are one address now, public and
+ * indexed (see `src/app/stock/[ticker]/page.tsx`), so the old public one is
+ * answered permanently: a search engine moves what it learned about the old
+ * URL onto the new one, and two addresses for one page would split it. The
+ * social image under it moves with it.
+ */
+const RESEARCH_COMPANY = /^\/research\/([^/]+)(\/opengraph-image)?\/?$/;
+
 export function legacyRedirectPath(
   pathname: string,
   params: URLSearchParams
 ): string | null {
   const alias = PATH_ALIASES[pathname];
   if (alias) return alias;
+  const company = RESEARCH_COMPANY.exec(pathname);
+  if (company?.[1]) return `/stock/${company[1].toUpperCase()}${company[2] ?? ""}`;
   if (pathname !== "/") return null;
 
   const tab = params.get("tab")?.trim().toLowerCase() || "";

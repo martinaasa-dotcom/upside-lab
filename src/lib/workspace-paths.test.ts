@@ -4,9 +4,36 @@ import { describe, expect, it } from "vitest";
 import {
   BOOK_ROOM_PATHS,
   PRIVATE_NOINDEX_PATHS,
+  PUBLIC_CHILDREN_PATHS,
   PUBLIC_INDEX_PATHS,
 } from "@/lib/seo-routes";
-import { workspaceRoomId } from "@/lib/workspace-paths";
+import { shellRoomId, workspaceRoomId } from "@/lib/workspace-paths";
+
+describe("shellRoomId: one address, two readers", () => {
+  /*
+    A company page is the research room for somebody signed in and the
+    public, server-rendered page for everybody else, at the same address.
+    The shell decides which by handing the path to a room or to its page,
+    and getting it wrong either way is a real fault: a stranger given the
+    room meets a sign-in wall, and a signed-in reader given the page loses
+    the app's header and dock and their own holdings.
+  */
+  it("gives a signed-in reader the room, with the app around it", () => {
+    expect(shellRoomId("/stock/MU", true)).toBe("stock:MU");
+  });
+
+  it("gives everybody else the page, which is what a crawler reads", () => {
+    expect(shellRoomId("/stock/MU", false)).toBeNull();
+    expect(shellRoomId("/stock/mu/", false)).toBeNull();
+  });
+
+  it("changes nothing about any other room", () => {
+    for (const path of ["/", "/pulse", "/communities", "/account", "/upside-portfolio"]) {
+      expect(shellRoomId(path, false)).toBe(workspaceRoomId(path));
+      expect(shellRoomId(path, true)).toBe(workspaceRoomId(path));
+    }
+  });
+});
 
 describe("workspaceRoomId", () => {
   it("maps book aliases onto the keep-alive book pane", () => {
@@ -85,6 +112,7 @@ describe("every room a reader can reach is on one list or the other", () => {
   it("leaves none of them undeclared", () => {
     const declared = new Set<string>([
       ...PUBLIC_INDEX_PATHS,
+      ...PUBLIC_CHILDREN_PATHS,
       ...PRIVATE_NOINDEX_PATHS,
     ]);
     expect(roomDirs.filter((p) => !declared.has(p))).toEqual([]);
@@ -97,7 +125,11 @@ describe("every room a reader can reach is on one list or the other", () => {
       stayed, which would put a robots line in front of a 404.
     */
     const known = new Set(roomDirs);
-    const claimed = [...PRIVATE_NOINDEX_PATHS, ...PUBLIC_INDEX_PATHS].filter(
+    const claimed = [
+      ...PRIVATE_NOINDEX_PATHS,
+      ...PUBLIC_INDEX_PATHS,
+      ...PUBLIC_CHILDREN_PATHS,
+    ].filter(
       (p) => p !== "/"
     );
     expect(claimed.filter((p) => !known.has(p))).toEqual([]);

@@ -31,6 +31,7 @@
 import { unstable_cache } from "next/cache";
 import type { CompanyPage } from "@/lib/company/client";
 import { buildCompanyPage } from "@/lib/company/page-build";
+import { RESEARCH_ALL_TAG, researchPageTag } from "@/lib/research/page-tags";
 import { normalizeResearchTicker } from "@/lib/research/universe";
 
 /**
@@ -54,13 +55,7 @@ import { normalizeResearchTicker } from "@/lib/research/universe";
  */
 export const RESEARCH_REVALIDATE_SECONDS = 21_600;
 
-/** Cleared by the warmer when it writes a new brief for this company. */
-export function researchPageTag(ticker: string): string {
-  return `research-page:${normalizeResearchTicker(ticker)}`;
-}
-
-/** Cleared when something changes for every page at once. */
-export const RESEARCH_ALL_TAG = "research-pages";
+export { researchPageTag, RESEARCH_ALL_TAG } from "@/lib/research/page-tags";
 
 export async function loadResearchPage(
   rawTicker: string
@@ -79,7 +74,7 @@ export async function loadResearchPage(
       or for the length of one window every reader is served an object the
       new code does not expect.
     */
-    ["research-page-v2", ticker],
+    ["research-page-v3", ticker],
     {
       revalidate: RESEARCH_REVALIDATE_SECONDS,
       tags: [researchPageTag(ticker), RESEARCH_ALL_TAG],

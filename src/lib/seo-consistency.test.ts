@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
-import { PRIVATE_NOINDEX_PATHS, PUBLIC_INDEX_PATHS } from "@/lib/seo-routes";
+import {
+  PRIVATE_NOINDEX_PATHS,
+  PUBLIC_CHILDREN_PATHS,
+  PUBLIC_INDEX_PATHS,
+} from "@/lib/seo-routes";
 import { RESEARCH_TICKERS, researchHref } from "@/lib/research/universe";
 
 /*
@@ -34,7 +38,9 @@ describe("public and private paths agree across robots and the sitemap", () => {
         : rule.allow
           ? [rule.allow]
           : [];
-      expect(allow).toHaveLength(PUBLIC_INDEX_PATHS.length);
+      expect(allow).toHaveLength(
+        PUBLIC_INDEX_PATHS.length + PUBLIC_CHILDREN_PATHS.length
+      );
       for (const path of PUBLIC_INDEX_PATHS) {
         /*
           `/research` is the one public path left unanchored, because its
@@ -44,6 +50,14 @@ describe("public and private paths agree across robots and the sitemap", () => {
         expect(allow).toContain(
           path === "/" || path === "/research" ? path : `${path}$`
         );
+      }
+      /*
+        Every company page lives under `/stock/`, which has no index page
+        of its own, so it is allowed by its trailing slash: the children
+        and nothing else.
+      */
+      for (const path of PUBLIC_CHILDREN_PATHS) {
+        expect(allow).toContain(`${path}/`);
       }
     }
   });

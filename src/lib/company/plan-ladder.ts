@@ -830,14 +830,24 @@ export function bandById(
  * this price in, and the distance to the nearest edge, which is checkable
  * against the table directly underneath it.
  */
-export function ladderRead(ladder: PlanLadder): string {
+export function ladderRead(
+  ladder: PlanLadder,
+  /**
+   * `shared` for a reader with no account, who has set nothing: the zones
+   * are this app's arithmetic, the same for everybody reading the company,
+   * and calling them "your" zones would tell a stranger they chose levels
+   * they have never seen.
+   */
+  opts: { shared?: boolean } = {}
+): string {
+  const whoseZones = opts.shared ? "the fair value zones" : "your fair value zones";
   const spot = ladder.spot;
   if (spot === null) {
-    return `There is no price for ${cashtag(ladder.ticker)} right now, so nothing can be placed in these zones. The levels below are still what your fair value zones say.`;
+    return `There is no price for ${cashtag(ladder.ticker)} right now, so nothing can be placed in these zones. The levels below are still what ${whoseZones} say.`;
   }
   const band = ladder.bands.find((b) => b.id === ladder.atId);
   if (!band) {
-    return `${currency(spot, 2)} today. Your fair value zones do not cover that price.`;
+    return `${currency(spot, 2)} today. ${opts.shared ? "The fair value zones" : "Your fair value zones"} do not cover that price.`;
   }
   const next = nearestEdge(ladder, spot);
   /*
@@ -850,7 +860,7 @@ export function ladderRead(ladder: PlanLadder): string {
   const distance = next
     ? ` ${whose} is ${currency(next.price, 2)}, which is ${percent(Math.abs(next.price - spot) / spot, 1)} ${next.price > spot ? "above" : "below"} today.`
     : "";
-  return `${currency(spot, 2)} today, which your fair value zones file under "${band.label}".${distance}`;
+  return `${currency(spot, 2)} today, which ${whoseZones} file under "${band.label}".${distance}`;
 }
 
 /** The closest edge to a price, in either direction. */

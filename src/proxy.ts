@@ -5,6 +5,7 @@ import { isBlockedCrawler } from "@/lib/bot-policy";
 import { legacyRedirectPath } from "@/lib/legacy-urls";
 import { buildContentSecurityPolicy } from "@/lib/security-headers";
 import { limitMutationRequest, limitPublicMarketRequest } from "@/lib/rate-limit";
+import { limitOpenResearchRequest } from "@/lib/research/public-access";
 import { isMutatingRequest, isSameOriginMutation } from "@/lib/same-origin";
 import {
   isLegacyHost,
@@ -149,6 +150,24 @@ export async function proxy(request: NextRequest) {
       const redirect = NextResponse.redirect(url, 308);
       redirect.headers.set("Content-Security-Policy", csp);
       return redirect;
+    }
+  }
+
+  if (!isApi) {
+    const limited = limitOpenResearchRequest(request);
+    if (limited && !limited.ok) {
+      const blocked = new NextResponse(
+        "Too many company pages at once. Try again in a minute.",
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Retry-After": String(limited.retryAfterSec ?? 60),
+          },
+        }
+      );
+      blocked.headers.set("Content-Security-Policy", csp);
+      return blocked;
     }
   }
 

@@ -87,6 +87,10 @@ const nextConfig: NextConfig = {
         source: "/research/:path*",
         headers: [NO_AI_TRAINING_HEADER],
       },
+      {
+        source: "/stock/:path*",
+        headers: [NO_AI_TRAINING_HEADER],
+      },
     ];
   },
 };

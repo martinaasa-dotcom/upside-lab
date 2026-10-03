@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PRIVATE_NOINDEX_PATHS } from "@/lib/seo-routes";
+import { PRIVATE_NOINDEX_PATHS, PUBLIC_CHILDREN_PATHS } from "@/lib/seo-routes";
 import { workspaceRoomId } from "@/lib/workspace-paths";
 import { companyHref, companyTickerFromPath } from "@/lib/company/client";
 
@@ -37,8 +37,17 @@ describe("a company is a room of its own", () => {
     expect(shell).toMatch(/MAX_STOCK_ROOMS/);
   });
 
-  it("is never indexed, because it is behind the sign-in gate", () => {
-    expect(PRIVATE_NOINDEX_PATHS as readonly string[]).toContain("/stock");
+  it("is public and indexed, because it is the page the app shares", () => {
+    /*
+      It used to be behind the sign-in gate, which meant the address a
+      reader shared was one the person they sent it to could not open, and
+      the page a search engine could find lived at a different address
+      nobody shared. One address now: the server-rendered page for a
+      stranger and a crawler, the room for somebody signed in.
+    */
+    expect(PRIVATE_NOINDEX_PATHS as readonly string[]).not.toContain("/stock");
+    expect(PUBLIC_CHILDREN_PATHS as readonly string[]).toContain("/stock");
+    expect(read("src/app/stock/[ticker]/page.tsx")).toMatch(/generateMetadata/);
   });
 });
 
@@ -142,16 +151,32 @@ describe("the route refuses what it cannot vouch for", () => {
     expect(guard).toBeLessThan(route.indexOf("buildCompanyPage("));
   });
 
-  it("is the caller allowed to spend a model run on demand", () => {
+  it("never makes the reader opening a company wait for a model", () => {
     /*
-      A person is waiting for this answer and has an account behind them.
-      The public page is the opposite case and passes `generate: false`,
-      because a page a stranger can trigger must never be able to spend a
-      run: see `src/lib/research/page-data.ts`.
+      The read answers with what is on file, judged, in about the time the
+      figures take. It used to write a missing or expired brief before it
+      answered, which was the twenty seconds of skeleton people noticed.
     */
-    expect(route).toMatch(/generate: true/);
+    expect(route).toMatch(/generate: false/);
+    expect(route).not.toMatch(/generate: true/);
     expect(read("src/lib/research/page-data.ts")).toMatch(/generate: false/);
     expect(read("src/lib/research/page-data.ts")).not.toMatch(/generate: true/);
+  });
+
+  it("leaves the rewrite to a separate request behind the page", () => {
+    /*
+      The one caller allowed to spend a model run on demand, for somebody
+      signed in who is already reading the page on file. A POST, so it is
+      behind the forged-request gate and the mutation limit, and checked
+      for a real ticker before anything is built.
+    */
+    const brief = read("src/app/api/company/[ticker]/brief/route.ts");
+    expect(brief).toMatch(/export const POST/);
+    expect(brief).toMatch(/requireAuthUser/);
+    expect(brief).toMatch(/generate: true/);
+    expect(brief.indexOf("isQuotableTicker")).toBeLessThan(
+      brief.indexOf("buildCompanyPage(")
+    );
   });
 });
 

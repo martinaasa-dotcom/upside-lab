@@ -1,19 +1,30 @@
 /**
- * The companies Upside Lab publishes a public research page for.
+ * The companies Upside Lab publishes a public research page for, and the
+ * rule for every other company somebody might share a link to.
  *
  * Everything about this list is a bound rather than a preference. A public
  * page is a page a stranger can open without an account, which means three
  * costs the app has never paid before: a provider call for a company
  * nobody here has ever looked at, a model run to write the page, and a URL
- * a crawler will come back to forever. An open front door on
- * `/research/<anything>` pays all three for every symbol anybody can type,
- * which is unbounded on all three axes at once.
+ * a crawler will come back to forever.
  *
- * So the public universe is a closed list, checked before a single fetch
- * happens, and the page for a symbol outside it does not exist. What that
- * buys is exact: the model spend is at most this many companies times the
- * refresh rate (see `warm.ts`), the crawl surface is exactly this many
- * URLs, and the sitemap can name every one of them.
+ * TWO TIERS, AND EACH COST IS BOUNDED BY A DIFFERENT ONE.
+ *
+ * The published list below is the front door: indexed, in the sitemap,
+ * linked from the index, and kept written by the warmer (`warm.ts`), so the
+ * model spend is at most this many companies times the refresh rate and the
+ * crawl surface is exactly this many URLs.
+ *
+ * Every other symbol the market lists (`isOpenResearchTicker`) still gets a
+ * page, because a reader inside the app shares a link to whatever company
+ * they were reading and the person they sent it to has no account. That
+ * page is unindexed, never warmed and never generates: it shows the
+ * figures, the live price in the fair value zones, and the written half
+ * only if somebody signed in has already had it written, which is the
+ * ordinary case for a shared link. So it costs a provider call per company
+ * per six hours, no model run ever, and adds nothing a crawler is invited
+ * to, and the proxy caps how fast any one caller can walk through them
+ * (`limitOpenResearchRequest`).
  *
  * **It is a list of listings, not of opinions.** The rule the rest of this
  * app already follows applies here with more force, because these pages
@@ -31,6 +42,8 @@
  * the index, and a reader who came for one chip company can walk to the
  * others. A flat list of a hundred names would be a hundred dead ends.
  */
+
+import { isQuotableTicker } from "@/lib/ticker";
 
 export type ResearchGroup = {
   /** Used in the URL of nothing, and in the heading of the index. */
@@ -207,24 +220,48 @@ export function normalizeResearchTicker(raw: string): string {
 }
 
 /**
- * Is there a public page for this symbol?
+ * Is this symbol on the published list: indexed, in the sitemap, warmed?
  *
- * Asked before anything is fetched, on every entry point: the page, the
- * social image, the sitemap and the warmer. A symbol outside the list is
- * not a page that failed to load, it is a page that does not exist, and it
- * answers 404 rather than spending a provider call to find that out.
+ * Asked by the sitemap, the warmer and the page's own metadata. A symbol
+ * outside the list may still have a page (`isOpenResearchTicker`), but it
+ * is never indexed and never written on this app's clock.
  */
 export function isResearchTicker(raw: string): boolean {
   return BY_TICKER.has(normalizeResearchTicker(raw));
+}
+
+/**
+ * Is there a public page for this symbol at all?
+ *
+ * The published list, or any symbol shaped like one the market lists.
+ * Asked before anything is fetched: free text, a path traversal or a
+ * sentence is refused here and answers 404 without a provider call. A
+ * well-shaped symbol the feed knows nothing about is found out by the one
+ * fetch, and answers 404 too.
+ */
+export function isOpenResearchTicker(raw: string): boolean {
+  const ticker = normalizeResearchTicker(raw);
+  if (!ticker) return false;
+  if (BY_TICKER.has(ticker)) return true;
+  return ticker.length <= 16 && isQuotableTicker(ticker);
 }
 
 export function researchGroupFor(raw: string): ResearchGroup | null {
   return BY_TICKER.get(normalizeResearchTicker(raw)) ?? null;
 }
 
-/** `/research/NVDA`. One place builds it so a link and its reader agree. */
+/**
+ * `/stock/NVDA`. One place builds it so a link and its reader agree.
+ *
+ * The public page and the room inside the app are one address. It used to
+ * be `/research/NVDA` for strangers and `/stock/NVDA` for readers with an
+ * account, which meant the link the app shared was the one a stranger
+ * could not open and the one a search engine indexed was the one nobody
+ * shared. The old public address answers with a permanent redirect
+ * (`legacyRedirectPath`).
+ */
 export function researchHref(ticker: string): string {
-  return `/research/${encodeURIComponent(normalizeResearchTicker(ticker))}`;
+  return `/stock/${encodeURIComponent(normalizeResearchTicker(ticker))}`;
 }
 
 /**

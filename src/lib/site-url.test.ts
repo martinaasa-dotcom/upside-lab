@@ -7,7 +7,7 @@
  * "https://upsidelab.app").origin is "https://evil.com".
  */
 import { describe, expect, it } from "vitest";
-import { safeInternalPath } from "@/lib/site-url";
+import { internalNextFrom, safeInternalPath } from "@/lib/site-url";
 
 const ORIGIN = "https://upsidelab.app";
 
@@ -74,5 +74,28 @@ describe("safeInternalPath", () => {
     for (const raw of attempts) {
       expect(landsOn(safeInternalPath(raw)), JSON.stringify(raw)).toBe(ORIGIN);
     }
+  });
+});
+
+describe("internalNextFrom", () => {
+  /*
+    A public company page asks somebody to sign in with
+    `/login?next=/stock/MU`, so they land on that company inside the app
+    rather than on a home screen and have to find it again.
+  */
+  it("follows the next a sign-in page was opened with", () => {
+    expect(internalNextFrom("/login", "?next=%2Fstock%2FMU")).toBe("/stock/MU");
+  });
+
+  it("never follows one off this site or back into the sign-in", () => {
+    expect(internalNextFrom("/login", "?next=https%3A%2F%2Fevil.com")).toBe("/");
+    expect(internalNextFrom("/login", "?next=%2F%2Fevil.com")).toBe("/");
+    expect(internalNextFrom("/login", "?next=%2Flogin%3Fnext%3D%2F")).toBe("/");
+  });
+
+  it("returns to the page itself everywhere else, as it always did", () => {
+    expect(internalNextFrom("/stock/MU", "")).toBe("/stock/MU");
+    expect(internalNextFrom("/login", "")).toBe("/login");
+    expect(internalNextFrom("/auth/callback", "?code=x")).toBe("/");
   });
 });

@@ -4,11 +4,10 @@ import { observeRoute } from "@/lib/observe-route";
 import { rateLimitJson } from "@/lib/rate-limit";
 import { takeDurableRateLimit } from "@/lib/rate-limit-durable";
 import { requireAuthUser } from "@/lib/supabase/server-auth";
-import { stampAdvisorUse } from "@/lib/advisor-use";
 import { noStoreHeaders } from "@/lib/cdn-cache";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 /**
  * One company page, for somebody signed in and looking one up.
@@ -16,13 +15,20 @@ export const maxDuration = 120;
  * The building is `buildCompanyPage`, shared with the public research
  * pages and the cron that warms them, so a company cannot read one way
  * inside the app and another way on its own public page. What stays here
- * is everything about **this caller**: who they are, how often they may
- * ask, and the stamp that records that a model ran on their behalf.
+ * is everything about **this caller**: who they are and how often they may
+ * ask.
  *
- * This is the one caller allowed to spend a model run on demand, because
- * it is the one where a person is waiting for the answer and has an
- * account behind them. The public page never generates. See
- * `page-build.ts`.
+ * IT NEVER WAITS ON A MODEL, AND THAT IS THE CHANGE.
+ *
+ * This read used to write a missing or expired brief before it answered,
+ * which was up to a minute of skeleton for whoever opened a company after
+ * its page had aged out: the twenty seconds people noticed. It answers now
+ * with whatever is on file, judged (`briefState`), in about the time the
+ * figures take, and when the page on file is stale or missing the room
+ * asks `POST /api/company/[ticker]/brief` for a rewrite behind the page it
+ * is already showing. That route is the one allowed to spend a model run
+ * on demand, because a person with an account is reading the page it will
+ * improve. See `page-build.ts`.
  */
 async function handleGET(
   req: Request,
@@ -61,13 +67,10 @@ async function handleGET(
   let built;
   try {
     built = await buildCompanyPage(ticker, {
-      generate: true,
+      generate: false,
       signal: req.signal,
-      onModelRun: () => stampAdvisorUse(auth.user.id),
     });
   } catch (err) {
-    // The builder swallows a failed model run and answers with the
-    // figures, so anything that reaches here is the reader leaving.
     if (req.signal.aborted) {
       return Response.json({ error: "Stopped." }, { status: 499 });
     }

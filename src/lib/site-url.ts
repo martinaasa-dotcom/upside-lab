@@ -146,10 +146,39 @@ export function safeInternalPath(raw: string | null | undefined): string {
   return trimmed;
 }
 
+/**
+ * Where a sign-in started on this page should land, from a path and its
+ * query. Pure, so it is tested without a window.
+ *
+ * `/login?next=/stock/MU` is how a public research page asks somebody to
+ * sign in and come straight back to the company they were reading, inside
+ * the app with their own holdings beside it. Without this, the sign-in
+ * started on `/login` returned to `/login` and the company was lost on the
+ * way, which is the difference between a nudge that works and one that
+ * dumps the reader on a home screen and makes them search again.
+ */
+export function internalNextFrom(path: string, search = ""): string {
+  if (path.startsWith("/auth/")) return "/";
+  const bare = path.replace(/\/+$/, "") || "/";
+  if (bare === "/login") {
+    let asked: string | null = null;
+    try {
+      asked = new URLSearchParams(search).get("next");
+    } catch {
+      asked = null;
+    }
+    if (asked) {
+      const safe = safeInternalPath(asked);
+      // Never back to the sign-in itself, which is a loop with a button.
+      if (safe.startsWith("/login") || safe.startsWith("/auth/")) return "/";
+      return safe;
+    }
+  }
+  return safeInternalPath(`${path}${search}`);
+}
+
 /** Path + query to send back to after Google sign-in. Never the callback itself. */
 export function currentInternalNext(): string {
   if (typeof window === "undefined") return "/";
-  const path = `${window.location.pathname}${window.location.search}`;
-  if (path.startsWith("/auth/")) return "/";
-  return safeInternalPath(path);
+  return internalNextFrom(window.location.pathname, window.location.search);
 }

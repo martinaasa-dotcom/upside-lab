@@ -183,7 +183,22 @@ export type CompanyFacts = {
  * the company, which moves each headline's index, and a brief cites
  * headlines by index; an older brief would point at the wrong article.
  */
-const FACTS_KEY_VERSION = "v3";
+export const FACTS_KEY_VERSION = "v3";
+
+/**
+ * The version a stored facts key was written under, or "" for a key from
+ * before versions existed.
+ *
+ * Two keys that disagree only in their figures describe a company that has
+ * reported since, which is a page worth showing with a note while it is
+ * rewritten. Two keys that disagree in their version describe a page this
+ * app decided was wrong, which is not worth showing at all, and that is
+ * why the two are told apart.
+ */
+export function factsKeyVersion(key: string): string {
+  const head = key.split("|")[0] ?? "";
+  return /^v\d+$/.test(head) ? head : "";
+}
 
 export function companyFactsKey(facts: CompanyFacts): string {
   const round = (n: number | null, digits = 2): string =>
