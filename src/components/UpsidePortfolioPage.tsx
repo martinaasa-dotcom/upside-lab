@@ -2035,7 +2035,7 @@ export function UpsidePortfolioPage() {
                         {
                           label: "Already taken",
                           value: signedCurrency(returnSplit.taken, 0),
-                          sub: "Sales and trading costs",
+                          sub: "Gains and losses on what was sold",
                           tone: signedTone(Math.round(returnSplit.taken), "text-foreground"),
                         },
                       ]

@@ -205,11 +205,12 @@ function dayBefore(key: string): string {
 /**
  * Is the race's start line in the benchmark's own units?
  *
- * The first report's `spy_price` is where the index's line starts. On
- * 2026-09-26 the Fund was reset to race SPY while the code still racing
- * QQQ ran once more, and wrote QQQ's close ($744.50) as the start line
- * against SPY's real $771.35, which drew the index 3.6% ahead before
- * either had moved. Checked on every run against the benchmark's own
+ * The first report's `spy_price` is where the index's line starts. The
+ * run that started on 2026-09-26 started under the QQQ code and wrote
+ * QQQ's close ($744.50) there; the reset meant to restart it against SPY
+ * was never applied, so the SPY code carried on from that row and drew
+ * the index against SPY's real $771.35, 3.6% ahead before either had
+ * moved. Checked on every run against the benchmark's own
  * close that day, so a repeat is an error the day it happens rather than
  * a chart somebody has to notice is wrong.
  */
