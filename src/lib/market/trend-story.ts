@@ -80,7 +80,7 @@ const REGIME_BASE: Record<
   weakening: {
     headline: "Trend rolling over",
     tone: "warn",
-    sentence: "TICKER is still above its long-term average, but that average has started to turn down. That is often the first sign a rise is losing its direction.",
+    sentence: "TICKER is still above its long-term average, but the average has turned down. Often the first sign a rise is fading.",
   },
   "strong-down": {
     headline: "Downtrend",
@@ -129,7 +129,7 @@ function applyDivergence(
       headline: "Uptrend losing power",
       tone: "warn",
       sentence:
-        "TICKER is still trending up, but each new high has come with less force behind it than the last one. That's usually the first crack, not the break itself.",
+        "TICKER is still trending up, but each new high has had less force behind it. Often the first crack, not the break.",
     };
   }
 
@@ -139,7 +139,7 @@ function applyDivergence(
       headline: "Downtrend, but showing cracks",
       tone: "warn",
       sentence:
-        "TICKER is still trending down, but the latest low came with less selling force than the one before it. Often the first sign before a bottom, not a guarantee of one.",
+        "TICKER is still trending down, but the latest low had less selling behind it. Often an early sign of a bottom, not a promise.",
     };
   }
 
@@ -149,7 +149,7 @@ function applyDivergence(
     headline: "Mixed signals",
     tone: "neutral",
     sentence:
-      "TICKER's long-term trend and its recent momentum are pointing in different directions right now. No clean story yet.",
+      "TICKER's long-term trend and its recent momentum disagree. No clean story yet.",
   };
 }
 

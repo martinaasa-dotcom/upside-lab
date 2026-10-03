@@ -69,11 +69,11 @@ export function ClassroomRoster({
   });
 
   return (
-    <section className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+    <section className="overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
       <div className="border-b border-border surface-gutter py-6">
         <PanelHeader
           title="Roster"
-          subtitle="Everyone started with the same cash. Ranked by how far each student is up or down since then, and who is holding just one company."
+          subtitle="Ranked by how far each is up or down from the same starting cash."
         />
       </div>
       <div className="flex flex-col gap-3 surface-gutter py-6 md:hidden">

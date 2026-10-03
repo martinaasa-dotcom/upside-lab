@@ -58,7 +58,7 @@ export function CompanySources({
     <Panel>
       <PanelHeader
         title="Sources"
-        subtitle="Nothing here should be taken on trust. This is where it all came from."
+        subtitle="Where every figure and point came from."
         icon={<Library className="h-4 w-4" />}
       />
 
@@ -66,8 +66,12 @@ export function CompanySources({
         <div className="flex flex-col gap-3">
           <MicroLabel>Articles this page was written from</MicroLabel>
           <ul className="flex flex-col gap-2">
-            {articles.map((a) => (
-              <li key={a.href}>
+            {articles.map((a, i) => (
+              <li
+                key={a.href}
+                className="wave-in"
+                style={{ ["--i" as string]: i * 2 }}
+              >
                 <a
                   href={a.href}
                   target="_blank"
@@ -101,15 +105,13 @@ export function CompanySources({
             ))}
           </ul>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Not checked or vouched for by this app. The publisher and the date
-            are there to judge each one by.
+            Not vouched for by this app. Judge each by its publisher and date.
           </p>
         </div>
       ) : (
         <p className="text-sm leading-relaxed text-muted-foreground">
-          No articles came back for this company, so the reading above rests
-          on the figures and the company&apos;s own description alone. That
-          makes it thinner than usual, not wrong.
+          No articles came back, so the page rests on the figures and the
+          company&apos;s own description. Thinner than usual, not wrong.
         </p>
       )}
 
@@ -122,8 +124,12 @@ export function CompanySources({
             things to weigh, where they are one list of places to go.
           */}
           <ul className="flex flex-col divide-y divide-border border-y border-border">
-            {sources.map((s) => (
-              <li key={s.id}>
+            {sources.map((s, i) => (
+              <li
+                key={s.id}
+                className="wave-in"
+                style={{ ["--i" as string]: i * 2 }}
+              >
                 <a
                   href={s.href}
                   target="_blank"

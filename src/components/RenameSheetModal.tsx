@@ -57,18 +57,18 @@ export function RenameSheetModal({
 
   return (
     <ViewportOverlay
-      className="z-50 flex items-center justify-center p-4"
+      className="z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClose={onClose}
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
       <form
         onSubmit={submit}
-        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-xl bg-popover p-6 ring-1 ring-foreground/20"
+        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl glass-overlay modal-in modal-pad ring-1 ring-foreground/20 sm:rounded-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="font-semibold text-foreground">{title}</h2>

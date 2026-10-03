@@ -37,7 +37,7 @@ import { Table2 } from "lucide-react";
 import { htmlHeadRow } from "@/components/FluidTable";
 
 const YOUR_TARGET_EXPLAINER =
-  "The top figure is the pot that age needs, based on what you typed for spending. Below it is what you would need to save each month to close the gap by then. That monthly figure will not always fall in a straight line: a mortgage, car payment or child cost still running between now and a later age can eat into the years left to save, even though the pot needed by then is smaller. Where your own numbers already cover the pot, it says so instead of a monthly figure.";
+  "The top figure is the pot that age needs for your spending. Below it is the monthly saving that closes the gap by then. A mortgage, car or child cost still running can make a later age need more a month, even with a smaller pot. Where you already have enough, it says so.";
 
 const CELL = "whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums";
 const HEAD = "whitespace-nowrap px-3 py-2 text-right align-bottom font-medium";
@@ -77,7 +77,7 @@ export function GridPanel({
       <PanelHeader
         icon={<Table2 className="h-4 w-4" />}
         title="What stopping at each age costs"
-        subtitle={`Your plan, with the age changed. Run to ${plan.planningAge}. Your own row is marked.`}
+        subtitle={`Your plan at every age, lasting to ${plan.planningAge}.`}
       />
 
       <Segmented

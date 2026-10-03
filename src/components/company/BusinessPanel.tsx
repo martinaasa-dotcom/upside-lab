@@ -200,10 +200,9 @@ function MoneyBars({ periods, code }: { periods: Period[]; code: string }) {
         anything.
       */}
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Each bar is one period, and its full length is that period&apos;s
-        revenue. The{" "}
-        <span className="font-medium text-gain">green part is the profit</span>{" "}
-        they kept; the grey is what the period cost them.
+        Each bar is a period&apos;s revenue. The{" "}
+        <span className="font-medium text-gain">green is profit</span>; the
+        grey is cost.
       </p>
       <ul className="flex flex-col gap-8">
         {periods.map((p) => (
@@ -226,7 +225,7 @@ function Surprises({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <MicroLabel>Results days, against what analysts expected</MicroLabel>
+        <MicroLabel>Results against analyst estimates</MicroLabel>
         {counted > 0 && (
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {beats} of the last {counted} came in above
@@ -400,7 +399,7 @@ export function BusinessPanel({
             />
           </span>
         }
-        subtitle="What it sold, how much of that it kept, and whether it hit the number analysts had for it."
+        subtitle="What it sold, what it kept, and how it did against estimates."
         icon={<BarChart3 className="h-4 w-4" />}
         actions={
           hasYears && hasQuarters ? (

@@ -75,7 +75,7 @@ export function HomeTopic({ inputs, patch, onClose }: TopicProps) {
         className="pr-10"
         icon={<Home className="h-4 w-4" />}
         title="Your home"
-        subtitle="The published baskets assume a home owned outright. Correct that here."
+        subtitle="The published baskets assume a home owned outright."
       />
       <ChoiceField<Housing>
         label="By the time you stop working"
@@ -112,7 +112,7 @@ export function HomeTopic({ inputs, patch, onClose }: TopicProps) {
           value={inputs.rentAnnual}
           currency={code}
           onChange={(rentAnnual) => patch({ rentAnnual })}
-          note={`Rent never ends, so it is carried to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly, 0, "GBP")} a month.`}
+          note={`Counted to the last year of the plan. Opened on ${currency(UK_COST_ANCHORS.rentMonthly, 0, "GBP")} a month.`}
         />
       ) : null}
     </Panel>
@@ -205,7 +205,7 @@ export function ChildrenTopic({ inputs, patch, onClose }: TopicProps) {
             min={0}
             max={40}
             suffix="years old"
-            note="18 for most people. 21 or more if you expect to support them through university."
+            note="18 for most, 21 or more through university."
           />
         </div>
       ) : null}
@@ -224,7 +224,7 @@ export function CarTopic({ inputs, patch, onClose }: TopicProps) {
         className="pr-10"
         icon={<Car className="h-4 w-4" />}
         title="A car"
-        subtitle="A lease or finance payment can carry on indefinitely, which changes the pot more than most people guess."
+        subtitle="A lease or finance payment can run for life."
       />
       <div className={FIELD_GRID}>
         <MoneyField
@@ -234,7 +234,7 @@ export function CarTopic({ inputs, patch, onClose }: TopicProps) {
           onChange={(carMonthly) => patch({ carMonthly })}
           note={
             inputs.standard === "minimum"
-              ? "The minimum standard is priced with no car in it, so this opens at zero. Type a figure if you have one."
+              ? "The minimum standard has no car in it, so this opens at zero."
               : `Leave at zero if you own your car outright. Opened on ${currency(standardCosts.carMonthly, 0, "GBP")} a month for the ${STANDARD_LABEL[inputs.standard].toLowerCase()} standard.`
           }
         />
@@ -245,7 +245,7 @@ export function CarTopic({ inputs, patch, onClose }: TopicProps) {
             onChange={(carYearsLeft) => patch({ carYearsLeft })}
             max={60}
             suffix="years"
-            note="Counted from today, same as the mortgage."
+            note="Counted from today."
           />
         )}
       </div>
@@ -272,8 +272,7 @@ export function SavingsTopic({ inputs, patch, onClose }: TopicProps) {
       <PanelHeader
         className="pr-10"
         icon={<PiggyBank className="h-4 w-4" />}
-        title="What else you have, and what you draw out"
-        subtitle="Other savings, whether your saving keeps pace, and tax on the way out."
+        title="Other savings and tax"
       />
       <div className={FIELD_GRID}>
         <MoneyField
@@ -288,7 +287,7 @@ export function SavingsTopic({ inputs, patch, onClose }: TopicProps) {
           value={inputs.contributionGrowthPct}
           digits={1}
           onChange={(contributionGrowthPct) => patch({ contributionGrowthPct })}
-          note="Above inflation. One per cent is an ordinary career; zero is fine too."
+          note="Above inflation. One per cent is an ordinary career."
         />
         <PercentField
           label="Tax on what you draw out"
@@ -325,7 +324,7 @@ export function IncomeTopic({ inputs, patch, onClose }: TopicProps) {
         className="pr-10"
         icon={<Wallet className="h-4 w-4" />}
         title="Income that is not the pot"
-        subtitle="Guaranteed income the pot does not have to fund. Often worth more than people realize."
+        subtitle="Guaranteed income the pot does not have to fund."
       />
       <label className="flex cursor-pointer items-center justify-between gap-3">
         <span className="min-w-0 text-sm text-muted-foreground">

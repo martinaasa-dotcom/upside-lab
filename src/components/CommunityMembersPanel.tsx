@@ -157,7 +157,7 @@ export function CommunityMembersPanel({
                         )}
                       </p>
                     </div>
-                    <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+                    <ul className="divide-y divide-border overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
                       {members.map((m) => {
                         const sheetIds = new Set(
                           ownership
@@ -203,16 +203,16 @@ export function CommunityMembersPanel({
                         return (
                           <li
                             key={m.user_id}
-                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                            className="flex items-start justify-between gap-3 px-4 py-3 sm:items-center"
                           >
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedOwnerId(m.user_id);
                               }}
-                              className="text-left"
+                              className="min-w-0 flex-1 text-left"
                             >
-                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-foreground">
                                 {profileName(m.user_id)}
                                 {m.is_you && (
                                   <span className="text-sm text-muted-foreground">
@@ -289,7 +289,13 @@ export function CommunityMembersPanel({
                                     variant="ghost"
                                     size="icon-sm"
                                     disabled={busy}
-                                    className="touch-target"
+                                    /*
+                                      Beside the name, never under it. The
+                                      row wrapped, so on a phone this glyph
+                                      took a line of its own below every
+                                      member and the rows alternated height.
+                                    */
+                                    className="touch-target -mr-2 -mt-1 shrink-0 sm:mt-0"
                                     aria-label={`Options for ${profileName(m.user_id)}`}
                                   >
                                     <MoreHorizontal />
@@ -331,6 +337,7 @@ export function CommunityMembersPanel({
                                 variant="outline"
                                 size="sm"
                                 disabled={busy}
+                                className="shrink-0"
                                 onClick={() => setLeaveOpen(true)}
                               >
                                 <LogOut data-icon="inline-start" />
@@ -361,14 +368,14 @@ export function CommunityMembersPanel({
                         return (
                           <li
                             key={ownerKey}
-                            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                            className="flex items-start justify-between gap-3 px-4 py-3 sm:items-center"
                           >
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedOwnerId(ownerKey);
                               }}
-                              className="text-left"
+                              className="min-w-0 flex-1 text-left"
                             >
                               <div className="text-sm font-medium text-foreground">
                                 {p.label}
@@ -417,9 +424,8 @@ export function CommunityMembersPanel({
                         <Badge variant="secondary">{joinRequests.length}</Badge>
                       </h2>
                       <p className="text-sm text-muted-foreground">
-                        Nothing happens until you decide. If you would
-                        rather people came straight in, turn that on in
-                        Settings.
+                        Nobody joins until you decide. Settings can let them
+                        straight in.
                       </p>
                       <ItemGroup>
                         {joinRequests.map((r) => (
@@ -470,8 +476,8 @@ export function CommunityMembersPanel({
                       </h2>
                       <p className="text-sm leading-relaxed text-muted-foreground">
                         {isClassroom
-                          ? "Anyone with this link joins the class and starts with the same paper cash and an empty portfolio. It works for 30 days."
-                          : "Anyone with this link can join. They will see how each portfolio moved, what is in it and what it is worth today, never what anybody paid. It works for 30 days."}
+                          ? "Anyone with this link joins with the same paper cash. Works for 30 days."
+                          : "Anyone with this link can join and see each portfolio, never what anybody paid. Works for 30 days."}
                       </p>
                       <Button
                         type="button"
@@ -509,8 +515,8 @@ export function CommunityMembersPanel({
                               className="mt-1.5"
                             />
                             <span className="mt-1 block text-sm text-muted-foreground">
-                              We will mail the link for you, and it will only
-                              work for these people. Separate them with a comma.
+                              We mail it, and it works only for them. Separate
+                              with commas.
                             </span>
                           </label>
                           <label className="block">
@@ -538,8 +544,8 @@ export function CommunityMembersPanel({
                               aria-label="Link never stops working"
                             />
                             <span className="leading-relaxed">
-                              Never stops working. Anyone who ever sees this
-                              link can join, so only use it somewhere private.
+                              Never expires. Anyone who sees it can join, so
+                              keep it private.
                             </span>
                           </label>
                         </div>
@@ -602,7 +608,13 @@ export function CommunityMembersPanel({
                             const live = inv.status === "live";
                             return (
                               <Item key={inv.id} variant="outline">
-                                <ItemContent>
+                                {/*
+                                  The text takes the whole row on a phone
+                                  and the two buttons go under it. Side by
+                                  side they left the text a column one
+                                  letter wide.
+                                */}
+                                <ItemContent className="basis-full sm:basis-0">
                                   <ItemTitle>
                                     {creatorName}
                                   </ItemTitle>
@@ -622,13 +634,12 @@ export function CommunityMembersPanel({
                                   ) : null}
                                   {live ? (
                                     <ItemDescription>
-                                      The link was shown once, when it was
-                                      made. To share it again, make a new
-                                      link; this one stops working.
+                                      Shown once when made. A new link
+                                      replaces this one.
                                     </ItemDescription>
                                   ) : null}
                                 </ItemContent>
-                                <ItemActions>
+                                <ItemActions className="flex-wrap">
                                   {live ? (
                                     <Button
                                       type="button"

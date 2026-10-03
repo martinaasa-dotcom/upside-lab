@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { PlaybookQuote } from "@/components/playbook/PlaybookQuote";
 import { PlaybookTerms } from "@/components/playbook/PlaybookTerms";
 import { Card, NESTED_PAD, NoteRows, Pill } from "@/components/ui/Panel";
@@ -133,11 +134,13 @@ function Track({
           ))}
         </div>
         {pos != null ? (
-          <span
-            className="pointer-events-none absolute bottom-0 h-1 w-8 -translate-x-1/2 rounded-full bg-primary"
-            style={{ left: `${pos}%` }}
-            aria-hidden
-          />
+          <Sweep at={pos / 100}>
+            <span
+              className="pointer-events-none absolute bottom-0 h-1 w-8 -translate-x-1/2 rounded-full bg-primary"
+              style={{ left: `${pos}%` }}
+              aria-hidden
+            />
+          </Sweep>
         ) : null}
       </div>
       <div className="mt-1.5 flex justify-between font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground">
@@ -222,8 +225,8 @@ export function TemperatureLadder({
         <Track score={score} selected={shown.id} onSelect={setPicked} />
         <p className="text-sm leading-relaxed text-muted-foreground">
           {score == null
-            ? "The reading has not landed yet. Press a band to read it."
-            : `${Math.round(score)} out of 100 today. Neither end is the good one: fear is where things are cheap, greed where they are dear.`}
+            ? "The reading has not landed yet."
+            : `${Math.round(score)} out of 100 today. Neither end is the good one: fear means low prices, greed high ones.`}
         </p>
         {/*
           WHOSE NUMBER IT IS, AND WHEN IT WAS READ.
@@ -239,8 +242,8 @@ export function TemperatureLadder({
         */}
         <p className="text-xs leading-relaxed text-muted-foreground">
           {score == null
-            ? "The score is CNN's Fear and Greed index for US stocks, which anybody can look up."
-            : `The score is CNN's Fear and Greed index for US stocks, which anybody can look up.${stamp ? ` Read ${stamp}.` : ""}`}
+            ? "CNN's public Fear and Greed index for US stocks."
+            : `CNN's public Fear and Greed index for US stocks.${stamp ? ` Read ${stamp}.` : ""}`}
         </p>
       </div>
       <BandBody band={shown} here={current?.id === shown.id} />

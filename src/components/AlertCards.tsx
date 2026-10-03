@@ -104,13 +104,6 @@ export function AlertCard({
     <article
       className={cn(
         "card-sheen glass w-full rounded-xl p-4 ring-1 sm:p-5",
-        /*
-          A card arrives where it is going to live rather than only as a
-          toast that leaves. `motion-safe` alone, because an alert sliding
-          into place is decoration and a reader who asked for less motion
-          should simply find it already there.
-        */
-        "motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:duration-300",
         TONE_RING[tone],
         className
       )}
@@ -215,10 +208,17 @@ export function AlertStack({
   */
   return (
     <div className="flex max-w-3xl flex-col">
-      {alerts.map((a) => (
+      {alerts.map((a, i) => (
         <div
           key={a.id}
+          style={{ ["--i" as string]: i * 3 }}
+          /*
+            A card arrives where it is going to live, one after another
+            down the stack (`wave-in`, motion.css), rather than only as a
+            toast that leaves. Off under reduced motion like every arrival.
+          */
           className={cn(
+            "wave-in",
             "grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:duration-0",
             leaving.includes(a.id)
               ? "grid-rows-[0fr] opacity-0"
@@ -277,14 +277,14 @@ export function AlertsQuiet({
     <Panel className="max-w-3xl">
       <PanelHeader
         title="Nothing to look at today"
-        subtitle="This page fills up on its own. Nothing here means nothing has changed enough to be worth your morning."
+        subtitle="This page fills up on its own when something changes."
       />
       <div>
         <MicroLabel>What this page watches</MicroLabel>
         <ul className="mt-2 flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-          <li>A company you own about to share its quarterly results.</li>
+          <li>Results coming up at a company you own.</li>
           <li>A share moving into a new fair value zone.</li>
-          <li>Borrowed money growing large next to what you own.</li>
+          <li>Borrowed money growing large.</li>
           <li>One holding becoming most of your portfolio.</li>
         </ul>
       </div>

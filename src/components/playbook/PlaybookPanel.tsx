@@ -86,7 +86,7 @@ function Section({
   children,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -182,7 +182,7 @@ export function PlaybookPanel() {
       <WidgetErrorBoundary name="Market temperature">
         <Section
           title="Fear and greed"
-          subtitle="Today's mood picks the idea. Press any band on the scale to read another."
+          subtitle="Press a band to read it."
           icon={<Gauge aria-hidden className="size-4" />}
         >
           <TemperatureLadder score={score} asOf={metrics.asOf} />
@@ -193,7 +193,6 @@ export function PlaybookPanel() {
         <WidgetErrorBoundary name="Recovery gap">
           <Section
             title="What a fall costs to undo"
-            subtitle="The rise that undoes a fall is always bigger than the fall. Drag it."
             icon={<Scale aria-hidden className="size-4" />}
           >
             <RecoveryGap />
@@ -210,8 +209,8 @@ export function PlaybookPanel() {
           <BestDaysSection>
             {(read) => (
               <Section
-                title="Where the returns actually come from"
-                subtitle="Missing the best days, and the half nobody prints."
+                title="Where returns come from"
+                subtitle="Missing the best days, and the worst."
                 icon={<Sparkles aria-hidden className="size-4" />}
               >
                 <BestDays read={read} />
@@ -225,7 +224,7 @@ export function PlaybookPanel() {
         <WidgetErrorBoundary name="Ideas">
           <Section
             title="Ideas worth keeping"
-            subtitle="From people who did this well, each with its famous line."
+            subtitle="Each one carries the way it goes wrong."
             icon={<Compass aria-hidden className="size-4" />}
           >
             <IdeaDeck />

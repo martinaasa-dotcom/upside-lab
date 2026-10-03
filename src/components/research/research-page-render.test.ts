@@ -108,7 +108,7 @@ describe("the public company page", () => {
     const html = render(page());
     expect(html).toContain("Fair value zones");
     expect(html).not.toContain("Your fair value zones");
-    expect(html).toContain("the fair value zones file under");
+    expect(html).toContain("in the fair value zones.");
   });
 
   it("leads into the app by ordinary links that come back to this company", () => {

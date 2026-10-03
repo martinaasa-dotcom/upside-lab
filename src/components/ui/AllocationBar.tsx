@@ -104,15 +104,23 @@ export function AllocationBar({
 }) {
   if (size === "lg") {
     return (
-      <div data-mix-bar className="overview-bar flex h-11 gap-[3px] sm:h-14" role="img" aria-label={slices.map((s) => s.title).join(", ")}>
-        {slices.map((s) => (
+      /*
+        The blocks rise into place one after another, biggest group first,
+        rather than the whole bar being stretched in from the left: a
+        stretched row of rounded blocks squashes their corners for the
+        length of the animation, and building the mix block by block is
+        what the picture is about.
+      */
+      <div data-mix-bar className="flex h-11 gap-[3px] sm:h-14" role="img" aria-label={slices.map((s) => s.title).join(", ")}>
+        {slices.map((s, i) => (
           <div
             key={s.key}
             {...mixProps(s.key)}
-            className="min-w-[6px] rounded-md transition-[filter] duration-200 first:rounded-l-xl last:rounded-r-xl hover:brightness-125"
+            className="grow-up min-w-[6px] rounded-md transition-[filter] duration-200 first:rounded-l-xl last:rounded-r-xl hover:brightness-125"
             style={{
               width: `${barFillPct(s.pct * 100, 1.5)}%`,
               backgroundColor: s.color,
+              ["--i" as string]: Math.min(i, 10) * 1.6,
             }}
             title={s.title}
           />

@@ -11,6 +11,12 @@ type Props = {
   height?: number;
   /** Stretch to the parent width. ViewBox still uses width/height. */
   fill?: boolean;
+  /**
+   * How long after arrival this line starts drawing itself in. A table
+   * passes each row's index times a few dozen milliseconds, so a column of
+   * sparklines draws as one cascade down the page rather than all at once.
+   */
+  delayMs?: number;
 };
 
 export const Sparkline = memo(function Sparkline({
@@ -19,6 +25,7 @@ export const Sparkline = memo(function Sparkline({
   width = 96,
   height = 28,
   fill = false,
+  delayMs = 0,
 }: Props) {
   if (!points.length) {
     return (
@@ -60,6 +67,10 @@ export const Sparkline = memo(function Sparkline({
         strokeLinejoin="round"
         strokeLinecap="round"
         points={coords}
+        /* A dash one whole line long (see `.line-draw`), drawn in once. */
+        pathLength={1}
+        className="line-draw"
+        style={delayMs ? { animationDelay: `${delayMs}ms` } : undefined}
       />
     </svg>
   );

@@ -11,6 +11,8 @@ import { TickerSymbol } from "@/components/TickerSymbol";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { barFillPct, cn, currency, percent, signedCurrency, signedPercent, signedTone } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { CountUp } from "@/components/ui/CountUp";
+import { SlideThumb } from "@/components/ui/SlideThumb";
 import {
   CARD,
   EmptyState,
@@ -114,7 +116,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
     return (
       <EmptyState
         title="Nothing to test yet"
-        detail="Add a holding and this shows what a rough day would do to your portfolio."
+        detail="Add a holding to see what a bad day would cost."
       />
     );
   }
@@ -139,7 +141,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
               />
             </span>
           }
-          subtitle="Pick a kind of day. Everything below reprices at once."
+          subtitle="Pick a kind of day."
         />
 
         {/*
@@ -153,8 +155,10 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
           ref={chipRowRef}
           role="group"
           aria-label="Market scenario"
-          className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 scrollbar-none [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:[mask-image:none]"
+          className="seg-track -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 scrollbar-none [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:[mask-image:none]"
         >
+          {/* The chosen day travels to the chip you press. */}
+          <SlideThumb on={selectedShock} className="rounded-full" />
           {SHOCKS.map((s) => {
             const Icon = DRIVER_ICONS[s.driver] ?? Activity;
             const isSelected = selectedShock === s.id;
@@ -169,7 +173,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                 data-on={isSelected || undefined}
                 onClick={() => setSelectedShock(s.id)}
                 className={cn(
-                  "h-9 shrink-0 snap-start rounded-full px-3.5 touch-target md:min-h-9",
+                  "seg-cell h-9 shrink-0 snap-start rounded-full px-3.5 touch-target md:min-h-9",
                   !isSelected &&
                     "bg-background text-muted-foreground hover:text-foreground dark:bg-background"
                 )}
@@ -212,7 +216,10 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             <div className="flex flex-col gap-1">
               <MicroLabel>Portfolio after this</MicroLabel>
               <p className="figure-hero text-foreground">
-                {currency(analysis.shockedTotalVal, 0)}
+                <CountUp
+                  value={analysis.shockedTotalVal}
+                  format={(n) => currency(n, 0)}
+                />
               </p>
             </div>
             <p className="text-sm tabular-nums text-muted-foreground">
@@ -232,7 +239,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                 <div className="relative h-3 overflow-hidden rounded-full bg-foreground/[0.06]">
                   <div
                     className={cn(
-                      "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                      "overview-bar absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                       b.after ? "bg-primary" : "bg-foreground/35"
                     )}
                     style={{ width: `${barFillPct((b.value / scaleMax) * 100)}%` }}
@@ -251,11 +258,11 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                 <Pill tone="good">Comfortable</Pill>
               )}
               <p className="text-sm leading-relaxed text-muted-foreground">
-                You would be holding{" "}
-                {analysis.margin.shockedLeverage.toFixed(2)} times what is really
-                yours, because part of it is borrowed. If your broker wants{" "}
-                {percent(SCENARIO_MAINTENANCE_RATE, 0)} of the stocks covered by
-                your own money, the room before a forced sale is{" "}
+                You would hold{" "}
+                {analysis.margin.shockedLeverage.toFixed(2)} times what is yours,
+                as part is borrowed. If your broker wants{" "}
+                {percent(SCENARIO_MAINTENANCE_RATE, 0)} covered by your own money,{" "}
+                the room before a forced sale is{" "}
                 <span
                   className={cn(
                     "font-semibold tabular-nums",
@@ -266,15 +273,15 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                 >
                   {currency(analysis.margin.shockedEquityCushion, 0)}
                 </span>
-                . Brokers use 25% to 30% and can raise it without warning, so the
-                Cash card on Home plans against a stricter half.
+                . Brokers use 25% to 30% and can raise it, so the Cash card on
+                Home plans against a stricter half.
               </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               {analysis.cash > 0
                 ? `Cash ${currency(analysis.cash, 0)} is untouched, ${analysis.margin.shockedCashPct.toFixed(1)}% of the portfolio after this.`
-                : "There is no cash set aside as a cushion."}
+                : "No cash set aside as a cushion."}
             </p>
           )}
         </div>
@@ -295,7 +302,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
       <Panel>
         <PanelHeader
           title="Where the damage lands"
-          subtitle="Each holding, worst first. The bar is what this day would cost it."
+          subtitle="Each holding, worst first."
         />
         {sortedRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing held here yet.</p>
@@ -304,7 +311,7 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
             className="grid gap-x-10 gap-y-3.5 lg:grid-flow-col lg:grid-cols-2"
             style={{ gridTemplateRows: `repeat(${Math.ceil(sortedRows.length / 2)}, auto)` }}
           >
-            {sortedRows.map((r) => {
+            {sortedRows.map((r, k) => {
               const width =
                 r.deltaVal === 0 ? 0 : barFillPct((Math.abs(r.deltaVal) / maxDelta) * 100, 1.5);
               return (
@@ -334,14 +341,14 @@ export function ScenarioSimulator({ holdings, cash }: Props) {
                   <div className="h-2 overflow-hidden rounded-full bg-foreground/[0.05]" aria-hidden>
                     <div
                       className={cn(
-                        "h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                        "grow-out h-full rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                         r.deltaVal > 0 ? "bg-gain/80" : r.deltaVal < 0 ? "bg-loss/80" : "bg-foreground/20"
                       )}
-                      style={{ width: `${width}%` }}
+                      style={{ width: `${width}%`, ["--i" as string]: Math.min(k, 12) * 2 }}
                     />
                   </div>
                   <p className="text-xs tabular-nums text-muted-foreground">
-                    {signedPercent(r.movePct)} on the share price, {currency(r.shockVal, 0)} after
+                    Price {signedPercent(r.movePct)}, {currency(r.shockVal, 0)} after
                   </p>
                 </li>
               );

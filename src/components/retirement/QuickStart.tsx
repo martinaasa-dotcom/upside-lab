@@ -71,7 +71,7 @@ export function QuickStart({
       <PanelHeader
         icon={<SlidersHorizontal className="h-4 w-4" />}
         title="Fine-tune the plan"
-        subtitle="What else the plan counts, and what it assumes for each. Tick anything to change it."
+        subtitle="Tap any part to change it."
       />
 
       <div className="flex flex-col gap-3">
@@ -79,11 +79,9 @@ export function QuickStart({
           type="button"
           aria-expanded={showLives}
           onClick={() => setShowLives((v) => !v)}
-          className="inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground hover:text-muted-foreground"
+          className="relative inline-flex items-center gap-1.5 self-start text-sm font-medium text-foreground before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-muted-foreground"
         >
-          {chosen
-            ? `Started from "${chosen.label}". Try another example life`
-            : "Start again from an example life"}
+          {chosen ? `Example life: ${chosen.label}` : "Start from an example life"}
           <ChevronDown
             className={cn(
               "h-4 w-4 transition-transform motion-reduce:transition-none",
@@ -133,11 +131,10 @@ export function QuickStart({
               {chosen ? (
                 <>
                   <span className="text-foreground">{chosen.label}</span>:{" "}
-                  {chosen.blurb} Every figure starts from this life until you
-                  change it.
+                  {chosen.blurb} Every figure starts from this life.
                 </>
               ) : (
-                "Pressing one replaces the whole plan with that life. Where you have real savings, they are kept."
+                "Pressing one replaces the plan. Your real savings stay."
               )}
             </p>
           </>

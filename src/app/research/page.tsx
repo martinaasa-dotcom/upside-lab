@@ -61,10 +61,9 @@ export default function ResearchIndex() {
           Research
         </h1>
         <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-          {RESEARCH_TICKERS.length} companies and funds, each read the same
-          way: what it does, what the accounts say and what the price is
-          assuming, with a link back to where every figure came from. None of
-          it is a rating or a recommendation.
+          {RESEARCH_TICKERS.length} companies and funds, read the same way:
+          what each does, what its accounts say and what its price assumes.
+          Every figure links to where it came from.
         </p>
       </div>
 
@@ -72,11 +71,15 @@ export default function ResearchIndex() {
         <Panel key={group.id}>
           <PanelHeader title={group.title} subtitle={group.blurb} />
           <ul className="flex flex-wrap gap-2">
-            {group.tickers.map((ticker) => (
-              <li key={ticker}>
+            {group.tickers.map((ticker, i) => (
+              <li
+                key={ticker}
+                className="wave-in"
+                style={{ ["--i" as string]: Math.min(i, 12) }}
+              >
                 <Link
                   href={researchHref(ticker)}
-                  className="inline-flex items-baseline gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition hover:bg-hover"
+                  className="card-sheen glass-well inline-flex items-baseline gap-2 rounded-lg px-3 py-1.5 text-sm text-foreground transition hover:bg-hover active:scale-[0.97] motion-reduce:active:scale-100"
                 >
                   {/* The name a person searches for, with the ticker beside
                       it: "$LRCX" alone means nothing to somebody who came
@@ -105,18 +108,13 @@ export default function ResearchIndex() {
       <Panel>
         <PanelHeader
           title={`Why these companies and not others`}
-          subtitle="The list is closed on purpose, and it is a list of listings rather than of opinions."
+          subtitle="A closed list of listings, not of opinions."
         />
         <p className="text-sm leading-relaxed text-muted-foreground">
-          A public page costs a call to a data provider and a run of a model
-          to write, so an open front door on every symbol anybody can type
-          would be unbounded in both. The test for being on this list is
-          whether an ordinary person might plausibly type the name into a
-          search box, which is why it is the largest listings, the names that
-          carry the news, and the broad funds most first accounts hold.
-          Nothing is here because anybody at {PRODUCT_NAME} believes in it,
-          and nothing is missing because anybody does not.{" "}
-          {ADVICE_DISCLAIMER_SHORT}
+          Every public page costs a data call and a model run, so the list is
+          bounded: the largest listings, the names in the news, and the broad
+          funds most first accounts hold. Nothing is here because anybody at{" "}
+          {PRODUCT_NAME} believes in it. {ADVICE_DISCLAIMER_SHORT}
         </p>
       </Panel>
     </ResearchChrome>

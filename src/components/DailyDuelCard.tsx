@@ -182,7 +182,7 @@ export function DailyDuelCard({
   const sessionWhen = duelSessionLabel(sessionKey);
   const sessionLine = communityId
     ? `The circle's pick. ${duelSessionCopy(sessionKey)}`
-    : `Tap the one you think is higher when the US market closes ${sessionWhen === "today" ? "today" : `on ${sessionWhen}`}.`;
+    : `Tap the one you think closes higher ${sessionWhen === "today" ? "today" : `on ${sessionWhen}`}.`;
 
   if (!pair) {
     return (
@@ -433,7 +433,7 @@ export function DailyDuelCard({
         {communityId
           ? communityLine
           : myPick == null
-            ? "One tap locks your pick in. You cannot change it afterwards, and there is no running percentage until the US market closes."
+            ? "One tap locks your pick. No peeking at the score until the US close."
             : waitingOnClose
               ? `Your pick is locked in. Results come after ${closeWhen}.`
               : resultLine}

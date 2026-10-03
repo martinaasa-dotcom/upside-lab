@@ -46,6 +46,17 @@ export type ClassroomHomeProps = {
   members: ReactNode;
 };
 
+
+/**
+ * Gain or loss colour off the figure as printed, to one decimal of a per
+ * cent. Off the raw fraction, a class up two hundredths of a per cent
+ * printed a plain "0.0%" in green.
+ */
+function toneAsPrinted(pct: number | null | undefined): "up" | "down" | undefined {
+  const shown = Math.round((pct ?? 0) * 1000);
+  return shown > 0 ? "up" : shown < 0 ? "down" : undefined;
+}
+
 export function ClassroomHome({
   name,
   houseNote,
@@ -87,11 +98,11 @@ export function ClassroomHome({
           <p className="text-sm leading-relaxed text-foreground">{houseNote}</p>
         ) : null}
         {!myClassSheet ? (
-          <div className={cn("flex flex-wrap items-center gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}>
+          <div className={cn("flex flex-wrap items-center gap-2 rounded-xl card-sheen glass ring-1 ring-foreground/20", PANEL_PAD)}>
             <p className="min-w-0 flex-1 text-sm text-foreground">
               {isAdmin
-                ? "You are watching the class. Get a paper portfolio if you want to trade alongside them."
-                : "You do not have a paper portfolio in this class yet. Tap Get paper portfolio to start with the same cash as everyone else."}
+                ? "You are watching. Get a paper portfolio to trade alongside them."
+                : "No paper portfolio yet. Get one to start with the same cash as everyone."}
             </p>
             <Button
               type="button"
@@ -104,8 +115,8 @@ export function ClassroomHome({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Open your paper portfolio to buy companies with the paper
-            money. The Sunday letter is your weekly summary.
+            Trade from your paper portfolio. The Sunday letter sums up
+            your week.
           </p>
         )}
       </section>
@@ -130,13 +141,7 @@ export function ClassroomHome({
                 : NO_VALUE
             }
             sub={signedCurrency(overview.totals.todayDollar)}
-            tone={
-              (overview.totals.todayPct ?? 0) > 0
-                ? "up"
-                : (overview.totals.todayPct ?? 0) < 0
-                  ? "down"
-                  : undefined
-            }
+            tone={toneAsPrinted(overview.totals.todayPct)}
           />
           <Score
             label="Total value"
@@ -150,13 +155,7 @@ export function ClassroomHome({
                 : NO_VALUE
             }
             sub={`${signedCurrency(classVsStartDollar)} · ${currency(startingCash)} each`}
-            tone={
-              (classVsStartPct ?? 0) > 0
-                ? "up"
-                : (classVsStartPct ?? 0) < 0
-                  ? "down"
-                  : undefined
-            }
+            tone={toneAsPrinted(classVsStartPct)}
           />
         </Scoreboard>
       </WidgetErrorBoundary>
@@ -189,8 +188,7 @@ export function ClassroomHome({
           {membersWithBooks.length === 0 && isAdmin && (
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm text-muted-foreground">
-                Send the invite. Each student gets the same starting
-                cash and an empty portfolio.
+                Each student gets the same starting cash.
               </p>
               <Button
                 type="button"

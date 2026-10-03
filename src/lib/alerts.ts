@@ -235,7 +235,7 @@ export function buildLadderAlerts(
       title: ladderMomentTitle(moment),
       detail: ladderMomentDetail(moment),
       learn:
-        "Nothing has been bought or sold, and this app is not telling you to do either. It is repeating a level you can read and change on the company's own Research page.",
+        "Nothing has been bought or sold. This repeats a level you can read and change on the company's Research page.",
       ticker: r.ticker,
       tone: r.bandId === "exit" ? "warning" : "neutral",
       digest: {
@@ -509,7 +509,7 @@ export function buildEarningsAlerts(
         title: `${cashtag(e.ticker)} shares its quarterly results ${when}`,
         detail: hideOptions
           ? `That is ${spokenDate(e.date)}. Prices often move more than usual on a results day, in either direction.`
-          : `That is ${spokenDate(e.date)}. Prices often move more than usual on a results day, in either direction, which makes options dearer and widens the range compared with an ordinary day.`,
+          : `That is ${spokenDate(e.date)}. Prices often move more than usual on a results day, in either direction, which makes options dearer.`,
         learn:
           "Nothing you own changes on the day. What changes is how much other people are willing to pay for it.",
         ticker: e.ticker,
@@ -651,7 +651,7 @@ export function buildDecisionAlerts(input: {
       title: `${cashtag(conc.ticker)} is ${percent(conc.shareOfStocks, 0)} of your stocks`,
       detail:
         conc.shareOfPortfolio == null
-          ? "When one holding is this large, most of how your year goes depends on this one company."
+          ? "Most of your year now rides on this one company."
           : conc.borrowed
             ? /*
                 Dollars rather than a share, because with borrowed money the
@@ -660,8 +660,8 @@ export function buildDecisionAlerts(input: {
                 broken number even when it is exactly right. Two amounts
                 side by side say the same thing and cannot look wrong.
               */
-              `Part of what you hold was borrowed, so ${cashtag(conc.ticker)} on its own is worth ${currency(conc.value, 0)} against the ${currency(conc.portfolioValue, 0)} in the account that is actually yours. When one holding is this large, most of how your year goes depends on this one company.`
-            : `That is ${percent(conc.shareOfPortfolio, 0)} of everything you own once cash is counted. When one holding is this large, most of how your year goes depends on this one company.`,
+              `Part of what you hold was borrowed, so ${cashtag(conc.ticker)} on its own is worth ${currency(conc.value, 0)} against the ${currency(conc.portfolioValue, 0)} in the account that is actually yours. Most of your year now rides on this one company.`
+            : `That is ${percent(conc.shareOfPortfolio, 0)} of everything you own once cash is counted. Most of your year now rides on this one company.`,
       learn: concentrationCostLine(conc),
       ticker: conc.ticker,
       term: "share-of-portfolio",

@@ -95,7 +95,6 @@ export function CompanyLookupPanel({
     <Panel>
       <PanelHeader
         title="Find a company"
-        subtitle="Type a name or a ticker, or press one below."
         icon={<Search className="h-4 w-4" />}
       />
       <CompanySearch placeholder="Apple, NVDA, an index fund, anything" />

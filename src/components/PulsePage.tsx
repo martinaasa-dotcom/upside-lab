@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -225,11 +226,13 @@ function RangeBar({ price, range }: { price: number; range: PulseRange }) {
     <div className="flex flex-col gap-2">
       <div className="relative h-2.5">
         <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-muted" />
-        <span
-          className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-foreground"
-          style={{ left: `calc(${(at * 100).toFixed(1)}% - 0.3125rem)` }}
-          aria-hidden
-        />
+        <Sweep at={at}>
+          <span
+            className="absolute top-1/2 size-2.5 -translate-y-1/2 rounded-full bg-foreground"
+            style={{ left: `calc(${(at * 100).toFixed(1)}% - 0.3125rem)` }}
+            aria-hidden
+          />
+        </Sweep>
       </div>
       <div className="flex items-baseline justify-between font-mono text-xs tabular-nums text-muted-foreground">
         <span>{currency(range.low)}</span>
@@ -973,7 +976,7 @@ export function unusualDayLine(
   if (ordinary === 0) {
     return `${plural(bigger, "holding")} moved more than usual ${when}.`;
   }
-  return `${bigger} of your ${plural(measured, "holding")} moved more than usual ${when}, and the other ${ordinary} stayed in their normal range.`;
+  return `${bigger} of your ${plural(measured, "holding")} moved more than usual ${when}. The other ${ordinary} stayed in range.`;
 }
 
 /**
@@ -987,7 +990,7 @@ export function unusualDayLine(
 export function marketMoodLine(score: number | null | undefined): string {
   if (score == null || !Number.isFinite(score)) return "";
   const rounded = Math.round(score);
-  return `Other people are feeling ${ratingForScore(rounded)} about the market right now, ${rounded} out of 100.`;
+  return `The market's mood is ${ratingForScore(rounded)}, ${rounded} out of 100.`;
 }
 
 /**
@@ -1840,8 +1843,8 @@ export const PulsePage = memo(function PulsePage({
            */
           subtitle={
             <>
-              Whether each move was the company or the whole market. The
-              badge is the thesis: the reason to own it.
+              The company, or the whole market? The badge is the thesis,
+              your reason to own it.
               {lastCheckedAt ? (
                 <span className="text-muted-foreground">
                   {" "}
@@ -1975,7 +1978,7 @@ export const PulsePage = memo(function PulsePage({
           <AlertDescription className="flex flex-col items-start gap-3">
             <span>
               {needsAccount
-                ? "On the sample the prices are live and the news is not read. With an account, every company you own gets a reading each day."
+                ? "On the sample, prices are live and the news is not read. With an account, every company gets a daily read."
                 : unread.length === ranked.length
                 ? "Nobody has read the news on these yet. The prices above are live."
                 : unread.length === 1
@@ -2051,7 +2054,7 @@ export const PulsePage = memo(function PulsePage({
       {candidates.length === 0 && !pinnedCandidate ? (
         <EmptyState
           title="Nothing on this list yet"
-          detail="Add a holding and this page starts watching it on its own. You can also try it on a company you know."
+          detail="Add a holding and Pulse starts reading it. Or try a company you know."
           action={
             <Button
               type="button"

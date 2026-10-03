@@ -200,8 +200,7 @@ export function ForecastOffStub({ onShow }: { onShow: () => void }) {
       <div className={SPLIT_COPY}>
         <p className="text-sm font-medium text-foreground">Forecast is off</p>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Margus&apos;s year-by-year path for this portfolio. Same idea as Pulse,
-          sitting under the table.
+          A price a year for each holding.
         </p>
       </div>
       <Button
@@ -408,6 +407,7 @@ function ForecastCard({
   why,
   provenance,
   placeholder = false,
+  waiting = true,
   onSetEoyPrice,
 }: {
   row: ForecastRow;
@@ -421,6 +421,12 @@ function ForecastCard({
   provenance: ReturnType<typeof forecastPathProvenance>;
   /** No model has reasoned this one, so it is drawn as a placeholder. */
   placeholder?: boolean;
+  /**
+   * True when a run can still arrive. On the sample nothing is asked
+   * (`needsAccount`), so a card saying Margus is "still working" on it
+   * would be waiting for something that never comes.
+   */
+  waiting?: boolean;
   onSetEoyPrice: (ticker: string, year: ForecastYear, price: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -457,7 +463,7 @@ function ForecastCard({
           </p>
           {/* The share count is in the holdings table above; a card that is
               still waiting says so and nothing else. */}
-          {!row.hasTargets ? (
+          {!row.hasTargets && waiting ? (
             <p className="mt-1 text-sm text-muted-foreground">
               Margus is still working this one out
             </p>
@@ -499,15 +505,16 @@ function ForecastCard({
         </span>
       </div>
 
+      {/*
+        No second "still writing" line under the price: it appeared on
+        exactly the cards that already say Margus is still working on
+        them, two sentences a card for one fact.
+      */}
       {why ? (
         <p className="mt-4 text-sm leading-relaxed text-foreground">
           <InsightText text={why} />
         </p>
-      ) : row.hasTargets ? null : (
-        <p className="mt-4 text-sm text-muted-foreground">
-          Margus is still writing why this path looks like this.
-        </p>
-      )}
+      ) : null}
 
       <div className="mt-3 flex items-center justify-between gap-3">
       {perYear != null && Number.isFinite(perYear) ? (
@@ -522,7 +529,8 @@ function ForecastCard({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls={railId}
-        className="flex items-center gap-1 text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
+        // A 20px row; the pseudo-element is the 44px a thumb needs.
+        className="relative flex items-center gap-1 text-sm text-muted-foreground outline-none before:absolute before:-inset-x-2 before:-inset-y-3 before:content-[''] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring/50"
       >
         {open ? "Show less" : "Every year"}
         <ChevronDown
@@ -773,7 +781,7 @@ export const ForecastPanel = memo(function ForecastPanel({
         pendingModelRef.current = true;
         if (!opts?.silent) {
           setError(
-            "Margus could not finish this one. The starting prices are already in the table. Tap Ask Margus to try again."
+            "Margus could not finish this one. Tap Ask Margus to try again."
           );
         }
         return "fail";
@@ -902,7 +910,7 @@ export const ForecastPanel = memo(function ForecastPanel({
       retryCountRef.current += 1;
       if (retryCountRef.current >= MAX_AUTO_TRIES) {
         setError(
-          "Margus could not be reached after several tries. The starting prices are already on your portfolio. Tap Ask Margus whenever you want him to try again."
+          "Margus could not be reached. Tap Ask Margus to try again."
         );
         return;
       }
@@ -1075,13 +1083,13 @@ export const ForecastPanel = memo(function ForecastPanel({
     });
     if (retryCountRef.current >= MAX_AUTO_TRIES && retryTick >= 0) return null;
     if (decision.run && decision.reason === "first-run") {
-      return "This is the first run on this portfolio, so Margus is working out the prices …";
+      return "First run here. Margus is working out the prices …";
     }
     if (decision.run && decision.reason === "new-holding") {
-      return "There is a new holding here, so Margus is working out a path for it …";
+      return "New holding. Margus is working out its path …";
     }
     if (pendingModelRef.current && !plan) {
-      return "The starting prices are already on your portfolio. Margus is still writing the reasoning …";
+      return "Starting prices are in. Margus is still writing the reasoning …";
     }
     return null;
   }, [labReady, planHydrated, model.rows, plan, fullyCovered, busy, cachedTickers, retryTick, needsAccount]);
@@ -1115,8 +1123,8 @@ export const ForecastPanel = memo(function ForecastPanel({
           }
           subtitle={
             needsAccount && !plan
-              ? `A price for each holding, every year to ${yearCols[yearCols.length - 1] ?? ""}. With an account, Margus works out each company and says why.`
-              : `A price for each holding, every year to ${yearCols[yearCols.length - 1] ?? ""}, and why.`
+              ? `Each holding, year by year to ${yearCols[yearCols.length - 1] ?? ""}. With an account, Margus works out each company and says why.`
+              : `Each holding, year by year to ${yearCols[yearCols.length - 1] ?? ""}, and why.`
           }
           actions={
             needsAccount ? undefined : (
@@ -1189,6 +1197,7 @@ export const ForecastPanel = memo(function ForecastPanel({
             why={whyByTicker.get(r.ticker.toUpperCase())}
             provenance={provenanceByTicker.get(r.ticker.toUpperCase())!}
             placeholder={isPlaceholder || !r.hasTargets}
+            waiting={!needsAccount}
             onSetEoyPrice={onSetEoyPrice}
           />
         ))}
@@ -1227,8 +1236,8 @@ export const ForecastPanel = memo(function ForecastPanel({
         {!plan && !busy && !error && (
           <EmptyState
             className="mt-3"
-            title="Margus is still working on this one"
-            detail="The starting prices may already be on the cards above. His reasoning appears here as soon as the run finishes."
+            title="No reasoning yet"
+            detail="It appears here once Margus finishes a run."
             action={
               <Button
                 type="button"
@@ -1245,7 +1254,7 @@ export const ForecastPanel = memo(function ForecastPanel({
         {busy && !plan && (
           <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-border bg-accent px-4 py-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Working through every holding in this portfolio …
+            Working through every holding …
           </div>
         )}
         {plan && !isFallbackForecastPlan(plan) && (
@@ -1272,7 +1281,7 @@ export const ForecastPanel = memo(function ForecastPanel({
                     Since the last run
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {`Compared with the run before this one, on ${formatGeneratedAt(prevPlan.generatedAt)}. Margus reasoned each name again from scratch; nothing here is nudged toward or away from a number.`}
+                    {`Against the run on ${formatGeneratedAt(prevPlan.generatedAt)}. Each name was reasoned again from scratch.`}
                   </p>
                 </div>
                 <ul>
@@ -1317,7 +1326,7 @@ export const ForecastPanel = memo(function ForecastPanel({
               >
                 <span className={SPLIT_COPY}>
                   This still mentions {soldTickersInPlan.join(", ")}, which you
-                  no longer hold here.
+                  no longer hold.
                   {busy ? " Updating …" : ""}
                 </span>
                 {!busy && (

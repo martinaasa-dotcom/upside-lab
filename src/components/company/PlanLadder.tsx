@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { useEffect, useState, type ReactNode } from "react";
 import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
@@ -168,11 +169,13 @@ function BandRow({
             aria-hidden
             className="absolute inset-x-0 top-6 h-px bg-foreground/20"
           />
-          <span
-            aria-hidden
-            className="absolute top-4 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-primary"
-            style={{ left: `${at * 100}%` }}
-          />
+          <Sweep at={at}>
+            <span
+              aria-hidden
+              className="absolute top-4 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-primary"
+              style={{ left: `${at * 100}%` }}
+            />
+          </Sweep>
           {/*
             The pill anchors to whichever end it is near rather than to
             its own centre, so it can never be drawn half outside the
@@ -294,8 +297,7 @@ export function PlanLadderTable({
         <Card tone="default" className="flex flex-col gap-3 p-5">
           <MicroLabel>Change the {band.label} level</MicroLabel>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            The price at the top of that band. The band below ends where
-            this one starts, so moving it moves both.
+            The top of this zone. Moving it moves the zone next to it too.
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -326,7 +328,7 @@ export function PlanLadderTable({
                 setEditing(null);
               }}
             >
-              Back to the worked-out level
+              Reset this level
             </Button>
           </div>
         </Card>
@@ -357,7 +359,7 @@ export function PlanLadderFoot({
           company that the reader wants anyway.
         */}
         {ladder.farBelow
-          ? ", tighter than usual because the price is a long way under the anchor and the stretch below it is one zone rather than five"
+          ? ", tighter than usual: the price is far under the anchor, so the stretch below is one zone rather than five"
           : ""}
         . {ADVICE_DISCLAIMER_SHORT}
       </p>
@@ -431,23 +433,28 @@ export function PlanLadderPanel({
             />
           </span>
         }
-        subtitle={shared ? `Where today's price sits against what ${cashtag(ticker)} looks worth, in bands sized by how far it ordinarily travels. Worked out by this app, the same for everybody reading the company, and the price moves through them live.` : `Levels decided in advance, so the decision is made now rather than in the middle of a red week. They are built from ${
+        subtitle={shared ? `Where today's price sits against what ${cashtag(ticker)} looks worth. Worked out by this app, the same for everybody, and the price moves through them live.` : `Built on ${
           // What the ladder actually hangs off, which is not always an
           // estimate: a fund and a coin get no valuation anywhere in this
           // app, and a subtitle promising one would be describing a panel
           // that is not on the page.
           ladder.anchorKind === "estimate"
-            ? "what this company looks worth, the same figure everybody else reading it gets"
+            ? "what it looks worth, the figure everybody sees"
             : ladder.anchorKind === "your-own"
               ? "the anchor you typed"
               : ladder.anchorKind === "house"
-                ? "the anchor this app's own account set, which you have not changed"
-                : "the range it has traded in over the last year"
-        } and how far ${cashtag(ticker)} ordinarily travels, and every one of them is yours to change.`}
+                ? "this app's anchor, which you have not changed"
+                : "its trading range over the last year"
+        }. Every level is yours to change.`}
         icon={<ListOrdered className="h-4 w-4" />}
         actions={
           ladder.spot !== null ? (
-            <div className="flex flex-col items-end gap-1">
+            /*
+              Below `sm` the actions take a row of their own under the
+              title, so the label sits flush left under the figure rather
+              than hanging off its right end.
+            */
+            <div className="flex flex-col items-start gap-1 sm:items-end">
               <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
                 {currency(ladder.spot, 2, code)}
               </span>

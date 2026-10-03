@@ -1,0 +1,438 @@
+/*
+ * THE APP'S SHARED MOTION LANGUAGE.
+ *
+ * The dock had a vocabulary of its own (a marker that travels, a press
+ * that gives, a glyph that pops on arrival) and the rest of the product
+ * spoke in fills that appeared and vanished. This file is that vocabulary
+ * lent to everything else, so a choice, a press and a chart all answer the
+ * hand the same way the dock does.
+ *
+ * Every rule here obeys the three the rest of this app's motion obeys:
+ * transform, opacity, clip or the independent `scale` property only, so
+ * the compositor can carry it while a room is rendering; nothing moves a
+ * figure somebody is reading; and none of it survives
+ * `prefers-reduced-motion`.
+ *
+ * Unlayered on purpose. Several of these hand a fill from a utility class
+ * over to another element, and an unlayered rule is the one thing that
+ * beats a utility without a specificity fight.
+ */
+
+/* ---------------------------------------------------------------------
+ * ONE MARKER FOR EVERY CHOICE (`SlideThumb.tsx`).
+ *
+ * A track of choices carries one thumb that glides to the chosen cell.
+ * Until it has measured, the chosen cell paints its own fill, so the first
+ * frame is right with or without scripts; `data-thumb` is the handover.
+ *
+ * The label's colour arrives a beat after the thumb sets off, because a
+ * dark label on a cell the gold has not reached yet is unreadable for the
+ * length of the flight. Leaving is immediate for the same reason the other
+ * way round.
+ * ------------------------------------------------------------------- */
+.seg-track {
+  position: relative;
+  isolation: isolate;
+}
+.seg-track > .seg-cell {
+  position: relative;
+  z-index: 1;
+  transition:
+    color 0.16s ease,
+    background-color 0.15s ease,
+    scale 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.seg-track > .slide-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: scale 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.seg-track[data-thumb] > .slide-thumb {
+  opacity: 1;
+}
+.seg-track[data-thumb] > .seg-cell[data-on] {
+  background: transparent;
+  box-shadow: none;
+  transition:
+    color 0.2s ease 0.09s,
+    background-color 0s,
+    scale 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/*
+ * A press gives. The cell under the finger comes down to 0.96 in 90ms and
+ * returns over 280ms, the dock's own asymmetry: a press that gives at
+ * once and comes back at its leisure feels physical. Pressing the chosen
+ * one squeezes the thumb with it, so the gold is felt to be under the
+ * finger. `scale` is its own property, so it composes with the thumb's
+ * travel transform rather than replacing it.
+ */
+.seg-track > .seg-cell:active:not(:disabled) {
+  scale: 0.96;
+  transition-duration: 0.09s;
+}
+.seg-track:has(> .seg-cell[data-on]:active:not(:disabled)) > .slide-thumb {
+  scale: 0.96;
+  transition-duration: 0.09s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seg-track > .seg-cell,
+  .seg-track > .slide-thumb {
+    transition: none;
+  }
+  .seg-track > .seg-cell:active:not(:disabled),
+  .seg-track:has(> .seg-cell[data-on]:active:not(:disabled)) > .slide-thumb {
+    scale: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * THE GOLD BUTTON CATCHES THE LIGHT.
+ *
+ * Pointing at a primary button sends one band of light across it, left to
+ * right, the way a gold edge catches a lamp as you tilt it. It is a
+ * background position on a small element, so it costs a few paints of one
+ * button and nothing else. It sweeps on the way in only: leaving snaps the
+ * band back out of sight rather than playing it backwards, which read as
+ * the button flinching.
+ *
+ * Disabled has no band: a button that is not ready does not shine.
+ * ------------------------------------------------------------------- */
+.btn-sheen {
+  background-image: linear-gradient(
+    105deg,
+    transparent 38%,
+    oklch(1 0 0 / 38%) 50%,
+    transparent 62%
+  );
+  background-size: 250% 100%;
+  background-position: 130% 0;
+  background-repeat: no-repeat;
+  transition:
+    background-position 0s linear,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease,
+    scale 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    translate 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.btn-sheen:disabled,
+.btn-sheen[aria-disabled="true"] {
+  background-image: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-sheen:hover {
+    background-position: -30% 0;
+    transition:
+      background-position 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 0.2s ease,
+      color 0.2s ease,
+      box-shadow 0.2s ease,
+      border-color 0.2s ease,
+      opacity 0.2s ease,
+      scale 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      translate 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+.btn-sheen:active:not([aria-haspopup]) {
+  transition-duration: 0.8s, 0.2s, 0.2s, 0.2s, 0.2s, 0.2s, 0.075s, 0.075s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-sheen,
+  .btn-sheen:hover {
+    background-image: none;
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * A CHART SAYS WHERE "NOW" IS, AND THE FINGER GETS A ROUND DOT.
+ *
+ * `.chart-now-dot` sits on a chart's last point and arrives as the line
+ * finishes drawing itself (`line-reveal` is 1.1s), then sends a ring out
+ * every couple of seconds: the one moving thing on a chart whose every
+ * other mark is history. `.chart-scrub-dot` replaces it under a finger or
+ * pointer, with a soft halo so it reads above a busy line. Both are HTML
+ * placed in per cent of the plot, centred on their own point by a negative
+ * margin, because an SVG circle in a stretched viewBox is an oval.
+ * ------------------------------------------------------------------- */
+.chart-now-dot,
+.chart-scrub-dot {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 9999px;
+}
+.chart-now-dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--background);
+  animation: chart-dot-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1s backwards;
+}
+.chart-now-dot::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1.5px solid var(--primary);
+  opacity: 0;
+  animation: chart-now-ring 2.6s cubic-bezier(0, 0, 0.2, 1) 1.5s infinite;
+}
+.chart-scrub-dot {
+  background: var(--foreground);
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 7px color-mix(in oklch, var(--primary), transparent 75%);
+  animation: chart-dot-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+@keyframes chart-dot-in {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+}
+@keyframes chart-now-ring {
+  0% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-now-dot,
+  .chart-scrub-dot,
+  .chart-now-dot::after {
+    animation: none;
+  }
+}
+/* A chart's end point arriving as its line finishes drawing. */
+.dot-arrive {
+  animation: chart-dot-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 1s backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot-arrive {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * A MARKER TRAVELS TO ITS READING (`.sweep-in`).
+ *
+ * A gauge's dot used to simply be at its value. Now it sets off from the
+ * start of the scale and runs to it, which is what a needle does and is
+ * the gauge explaining itself once: this is a scale, and the reading is
+ * this far along it. Transform only. The marker sits inside a wrapper the
+ * full width of its track, and the wrapper is what moves: translated back
+ * by the marker's own share of the track (`--at`, 0 to 1), it puts the
+ * marker at the start, so the animation needs no measuring at all. A
+ * gauge whose scale has a middle (fair value) sets `--from-at: 0.5`, and
+ * the marker sets off from there instead.
+ * ------------------------------------------------------------------- */
+@keyframes sweep-in {
+  from {
+    transform: translateX(calc((var(--from-at, 0) - var(--at, 0)) * 100%));
+    opacity: 0.4;
+  }
+}
+.sweep-in {
+  animation: sweep-in 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sweep-in {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * BARS GROW FROM THEIR OWN BASELINE, AND A GRID ARRIVES AS A WAVE.
+ *
+ * `.grow-up` and `.grow-down` scale a bar out of a zero line vertically,
+ * `.grow-out` horizontally from whichever side `--from` names (a fall
+ * grows leftwards from the middle of a diverging bar, a rise rightwards),
+ * and `.wave-in` brings a grid of cells in one after another. Every one
+ * takes its place in the sequence from `--i`, so a chart of twelve months
+ * rises left to right rather than all at once, and every one is capped by
+ * its caller so a long list is never still arriving when somebody reads it.
+ * ------------------------------------------------------------------- */
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes wave-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+}
+.grow-up,
+.grow-down {
+  animation: grow-y 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.grow-up {
+  transform-origin: 50% 100%;
+}
+.grow-down {
+  transform-origin: 50% 0;
+}
+.grow-out {
+  transform-origin: var(--from, left) center;
+  animation: grow-x 0.75s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.wave-in {
+  animation: wave-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 18ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .grow-up,
+  .grow-down,
+  .grow-out,
+  .wave-in {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * HELD UNTIL SEEN (`play-in-view.ts`).
+ *
+ * An arrival animation that mounted out of sight waits on its first frame
+ * until a reader scrolls to it. `ARRIVAL_SELECTOR` in that file lists the
+ * same classes; only arrivals are held, never a figure or a control.
+ * ------------------------------------------------------------------- */
+:is(
+    .sweep-in,
+    .grow-out,
+    .grow-up,
+    .grow-down,
+    .wave-in,
+    .line-reveal,
+    .line-draw,
+    .bar-reveal,
+    .overview-bar,
+    .progress-fill,
+    .spark-wash,
+    .dot-arrive,
+    .chart-now-dot,
+    .live-dot
+  )[data-await-view],
+.chart-now-dot[data-await-view]::after {
+  animation-play-state: paused;
+}
+
+/* An answer's mark pops in where the eye already is. */
+@keyframes answer-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-25deg);
+  }
+}
+.answer-pop {
+  animation: answer-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .answer-pop {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * SOMETHING IS ON ITS WAY (`skeleton-shine`).
+ *
+ * A placeholder used to pulse its whole fill up and down, which reads as
+ * a light blinking. A band of light travelling across it reads as work
+ * being done, and it is one transform on one pseudo-element, so a page of
+ * them costs the compositor and nothing else.
+ * ------------------------------------------------------------------- */
+.skeleton-shine {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    oklch(1 0 0 / 7%) 50%,
+    transparent 80%
+  );
+  animation: skeleton-shine 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes skeleton-shine {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shine::after {
+    animation: none;
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------------
+ * A DIALOG ARRIVES THE WAY THE BUILT-IN ONES DO.
+ *
+ * The shadcn dialog, sheet and popover fade and settle in; the dialogs this
+ * app draws by hand (`ViewportOverlay`: add holding, cash, CSV, invite,
+ * feedback and the rest) used to appear in one frame on a flat fill. They
+ * share the material now (`glass-overlay`) and this entrance: on a phone a
+ * sheet rises from the bottom edge it is anchored to, from `sm` up it
+ * settles in where it is centred, and the scrim behind fades rather than
+ * cutting in. Transform and opacity only, and gone under reduced motion.
+ * ------------------------------------------------------------------- */
+@keyframes modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+@keyframes modal-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+.modal-in {
+  animation: modal-rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (min-width: 640px) {
+  .modal-in {
+    animation-name: modal-settle;
+    animation-duration: 0.24s;
+  }
+}
+.scrim-in {
+  animation: scrim-in 0.2s ease-out backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-in,
+  .scrim-in {
+    animation: none;
+  }
+}
+

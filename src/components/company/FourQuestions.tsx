@@ -49,7 +49,7 @@ export function FourQuestions({
             />
           </span>
         }
-        subtitle={`Four questions to answer before putting money into ${cashtag(ticker)}, in its own figures. Everything below is the working behind one of them.`}
+        subtitle={`What to ask before putting money into ${cashtag(ticker)}, in its own figures.`}
         icon={<HelpCircle className="h-4 w-4" />}
       />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -57,8 +57,9 @@ export function FourQuestions({
           <Card
             key={a.id}
             tone="default"
+            style={{ ["--i" as string]: i * 3 }}
             className={cn(
-              "flex flex-col gap-2.5 p-5",
+              "wave-in flex flex-col gap-2.5 p-5",
               // The accent rule is a reading, not decoration: it is on the
               // answers that have a figure behind them and off the ones
               // that do not.

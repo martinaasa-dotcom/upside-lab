@@ -4,6 +4,7 @@
 @import "./scroll-host.css";
 @import "./dock.css";
 @import "./landing.css";
+@import "./motion.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -563,6 +564,19 @@ body {
    */
   :root[data-bottom-corner] .bottom-notice.bottom-notice-corner {
     bottom: calc(var(--dock-clearance, 1rem) + 5.5rem);
+  }
+
+  /*
+   * A notice the full width of a phone stops short of Margus's button
+   * instead of climbing over it. The sample notice sat exactly on top of
+   * the button at 390 (both at the dock line, the notice later in the
+   * document), so tapping Margus pressed "Leave" and took the reader out
+   * of the sample. 4rem is the 56px button plus a gap.
+   */
+  @media (max-width: 639px) {
+    :root[data-bottom-corner] .bottom-notice.bottom-notice-beside {
+      right: calc(max(1rem, env(safe-area-inset-right)) + 4rem);
+    }
   }
 
   /*

@@ -28,6 +28,7 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "@/components/ui/item";
+import { SlideThumb } from "@/components/ui/SlideThumb";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Popover,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/popover";
 import { listingCurrenciesAreMixed } from "@/lib/listing-currency";
 import { filledCardColumns, filledGridColumns } from "@/lib/filled-grid";
+import { hapticTick } from "@/lib/haptic";
 import { cn, signedPercent, splitMoveTint } from "@/lib/format";
 import {
   ChevronRight,
@@ -1102,6 +1104,8 @@ type ScoreProps = {
   subClassName?: string;
   bulletsClassName?: string;
   className?: string;
+  /** For an arrival's place in its grid (`--i`, motion.css). */
+  style?: CSSProperties;
 };
 
 function scoreTone(tone?: "up" | "down") {
@@ -1122,6 +1126,7 @@ export function Score({
   subClassName,
   bulletsClassName,
   className,
+  style,
 }: ScoreProps) {
   const reading = Boolean(bullets && bullets.length > 0);
   /*
@@ -1144,7 +1149,7 @@ export function Score({
     subClassName ?? "text-muted-foreground"
   );
   return (
-    <div className={cn(SCORE_CELL, className)}>
+    <div className={cn(SCORE_CELL, className)} style={style}>
       {/*
         * Inline, for the same reason `MicroLabel` is — see the note there.
         * A flex row parked the info dot on the far right of the cell as
@@ -1261,22 +1266,27 @@ export function Segmented<T extends string>({
         type="single"
         value={value ?? undefined}
         onValueChange={(next) => {
-          if (next) onChange(next as T);
+          if (!next) return;
+          hapticTick();
+          onChange(next as T);
         }}
         spacing={0}
         disabled={disabled}
         aria-label={ariaLabel}
         className={cn(
-          "card-sheen glass-well max-w-full min-w-0 p-[3px]",
+          "seg-track card-sheen glass-well max-w-full min-w-0 p-[3px]",
           className
         )}
       >
+        <SlideThumb on={value} />
         {options.map((o) => (
           <ToggleGroupItem
             key={o.id}
             value={o.id}
             title={o.title}
+            data-on={value === o.id ? "" : undefined}
             className={cn(
+              "seg-cell",
               /*
                 Each cell sized from its own label, then sharing whatever
                 the row has left. `flex-1` started every cell from zero and
@@ -1302,7 +1312,7 @@ export function Segmented<T extends string>({
       role="tablist"
       aria-label={ariaLabel}
       className={cn(
-        "grid w-full min-w-0 max-w-full",
+        "seg-track grid w-full min-w-0 max-w-full",
         /*
          * The same tray as the compact toggle above: a well with the cells
          * floating in it, never a `gap-px bg-border` hairline grid. That
@@ -1321,6 +1331,10 @@ export function Segmented<T extends string>({
       )}
       style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
+      <SlideThumb
+        on={value}
+        className={buttons ? "rounded-lg" : undefined}
+      />
       {options.map((o) => {
         const on = value === o.id;
         return (
@@ -1329,11 +1343,15 @@ export function Segmented<T extends string>({
             type="button"
             role="tab"
             aria-selected={on}
+            data-on={on ? "" : undefined}
             disabled={disabled}
             title={o.title}
-            onClick={() => onChange(o.id)}
+            onClick={() => {
+              if (o.id !== value) hapticTick();
+              onChange(o.id);
+            }}
             className={cn(
-              "flex min-w-0 items-center justify-center px-2 text-sm font-medium transition-all disabled:opacity-40",
+              "seg-cell flex min-w-0 items-center justify-center px-2 text-sm font-medium disabled:opacity-40",
               buttons
                 ? "touch-target min-h-9 rounded-lg border"
                 : "touch-target rounded-md border border-transparent py-2.5 md:min-h-0 md:min-w-0",

@@ -198,7 +198,7 @@ let easeTable: Float64Array | null = null;
  * and a table keyed to nothing would silently answer for the wrong one if
  * a second were ever passed in.
  */
-function eased(t: number) {
+export function eased(t: number) {
   if (t <= 0) return 0;
   if (t >= 1) return 1;
   if (!easeTable) {

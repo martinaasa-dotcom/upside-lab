@@ -102,7 +102,7 @@ function CycleMonthlyChart({
 
   return (
     <div className="hidden items-end gap-1 md:flex">
-      {rows.map((row) => {
+      {rows.map((row, i) => {
         const v = row.avgMonthReturnPct;
         const h = barFillPct((Math.abs(v) / maxAbs) * 100, 6);
         const isSelected = row.month === selectedMonth;
@@ -134,10 +134,10 @@ function CycleMonthlyChart({
                 {v > 0 ? (
                   <div
                     className={cn(
-                      "w-full max-w-[2.25rem] rounded-t transition group-hover:opacity-90",
+                      "grow-up w-full max-w-[2.25rem] rounded-t transition-opacity group-hover:opacity-90",
                       retBarColor(v)
                     )}
-                    style={{ height: `${h}%` }}
+                    style={{ height: `${h}%`, ["--i" as string]: i }}
                   />
                 ) : null}
               </div>
@@ -146,10 +146,10 @@ function CycleMonthlyChart({
                 {v < 0 ? (
                   <div
                     className={cn(
-                      "w-full max-w-[2.25rem] rounded-b transition group-hover:opacity-90",
+                      "grow-down w-full max-w-[2.25rem] rounded-b transition-opacity group-hover:opacity-90",
                       retBarColor(v)
                     )}
-                    style={{ height: `${h}%` }}
+                    style={{ height: `${h}%`, ["--i" as string]: i }}
                   />
                 ) : null}
               </div>
@@ -190,7 +190,7 @@ function CycleMonthlyTiles({
 }) {
   return (
     <div className="grid grid-cols-3 gap-2 md:hidden">
-      {rows.map((row) => {
+      {rows.map((row, i) => {
         const v = row.avgMonthReturnPct;
         const isSelected = row.month === selectedMonth;
         const isCurrent = row.month === currentMonth;
@@ -200,8 +200,9 @@ function CycleMonthlyTiles({
             type="button"
             onClick={() => onSelectMonth(row.month)}
             aria-pressed={isSelected}
+            style={{ ["--i" as string]: i }}
             className={cn(
-              "touch-target flex min-h-14 flex-col items-center justify-center rounded-xl px-1.5 py-2 transition",
+              "wave-in touch-target flex min-h-14 flex-col items-center justify-center rounded-xl px-1.5 py-2 transition active:scale-[0.96] motion-reduce:active:scale-100",
               retWash(v),
               isSelected
                 ? "ring-2 ring-primary"
@@ -250,7 +251,7 @@ function CycleHistoryBars({
 
   return (
     <div className="grid gap-0.5 md:h-52 md:overflow-y-auto md:overscroll-contain">
-      {sorted.map((h) => {
+      {sorted.map((h, i) => {
         const barW = (Math.abs(h.returnPct) / maxAbs) * 50;
         const isHighlight = highlightYear === h.year;
         return (
@@ -274,13 +275,23 @@ function CycleHistoryBars({
               <div className="absolute inset-y-0 left-1/2 w-px -translate-x-px bg-border" />
               <div
                 className={cn(
-                  "absolute inset-y-0 rounded-sm opacity-90",
+                  "grow-out absolute inset-y-0 rounded-sm opacity-90",
                   retBarColor(h.returnPct)
                 )}
                 style={
                   h.returnPct >= 0
-                    ? { left: "50%", width: `${barW}%` }
-                    : { right: "50%", width: `${barW}%` }
+                    ? {
+                        left: "50%",
+                        width: `${barW}%`,
+                        ["--from" as string]: "left",
+                        ["--i" as string]: Math.min(i, 16),
+                      }
+                    : {
+                        right: "50%",
+                        width: `${barW}%`,
+                        ["--from" as string]: "right",
+                        ["--i" as string]: Math.min(i, 16),
+                      }
                 }
               />
             </div>
@@ -409,7 +420,8 @@ function DayOfMonthChart({
               <div
                 key={day}
                 aria-hidden
-                className="min-h-11 rounded-lg bg-accent/30 md:min-h-11"
+                style={{ ["--i" as string]: i }}
+                className="wave-in min-h-11 rounded-lg bg-accent/30 md:min-h-11"
               />
             );
           }
@@ -425,8 +437,9 @@ function DayOfMonthChart({
               onClick={() => onSelectDay(day)}
               aria-pressed={isSelected}
               title={`Day ${day}: ${fmtPct(v, 3)} on average, up in ${row.winRate}% of ${row.samples} ${row.samples === 1 ? "year" : "years"}`}
+              style={{ ["--i" as string]: i }}
               className={cn(
-                "flex min-h-11 w-full flex-col items-center justify-center rounded-lg px-0.5 py-1.5 transition",
+                "wave-in flex min-h-11 w-full flex-col items-center justify-center rounded-lg px-0.5 py-1.5 transition active:scale-[0.94] motion-reduce:active:scale-100",
                 dayCellBg(v, mag, empty),
                 isSelected
                   ? "ring-2 ring-primary"
@@ -458,8 +471,7 @@ function DayOfMonthChart({
         })}
       </div>
       <p className="hidden text-sm text-muted-foreground md:block">
-        The average move on that calendar day in {monthLabel}. Pick a day to
-        see the years behind it.
+        {`Pick a day in ${monthLabel} to see its years.`}
       </p>
     </div>
   );
@@ -615,9 +627,8 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
               </p>
             ) : (
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Which months and days have historically been kind to the
-                market, and which have not. Patterns from the past, nothing
-                about your own holdings and no claim about what happens next.
+                Past patterns by month and day. No claim about what happens
+                next.
               </p>
             )}
           </div>
@@ -699,7 +710,7 @@ export function SeasonalityPage({ bookTickers = [] }: Props) {
           <Panel>
             <PanelHeader
               title="Daily rhythm within the month"
-              subtitle="One calendar day, averaged across the same years."
+              subtitle="Each day, averaged over the same years."
             />
             <div>
               <div className="mb-4 flex items-center justify-between gap-2">

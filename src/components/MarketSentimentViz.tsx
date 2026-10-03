@@ -31,8 +31,17 @@ import {
 const SPARK_W = 240;
 const SPARK_H = 64;
 
-function TrackMarker({ pct, className }: { pct: number; className: string }) {
-  return (
+function TrackMarker({
+  pct,
+  className,
+  sweep = false,
+}: {
+  pct: number;
+  className: string;
+  /** Travel in from the start of the scale on arrival (`.sweep-in`). */
+  sweep?: boolean;
+}) {
+  const dot = (
     <div
       aria-hidden
       className={cn(
@@ -41,6 +50,16 @@ function TrackMarker({ pct, className }: { pct: number; className: string }) {
       )}
       style={{ left: `${pct}%` }}
     />
+  );
+  if (!sweep) return dot;
+  return (
+    <div
+      aria-hidden
+      className="sweep-in pointer-events-none absolute inset-0"
+      style={{ ["--at" as string]: pct / 100 }}
+    >
+      {dot}
+    </div>
   );
 }
 
@@ -367,6 +386,8 @@ export function SentimentSparkPlot({
               vectorEffect="non-scaling-stroke"
             />
           ) : null}
+          {/* The year draws in left to right, like every other line. */}
+          <g className="line-reveal">
           {layout.gain.map((pts, i) => (
             <polygon
               key={`g${i}`}
@@ -402,6 +423,7 @@ export function SentimentSparkPlot({
             vectorEffect="non-scaling-stroke"
             points={layout.priceLine}
           />
+          </g>
           {probePt ? (
             <line
               x1={(probePt.x / 100) * SPARK_W}
@@ -418,7 +440,7 @@ export function SentimentSparkPlot({
         <span
           aria-hidden
           className={cn(
-            "pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background md:size-1.5 [@media(pointer:coarse)]:size-2",
+            "dot-arrive live-ping pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background md:size-1.5 [@media(pointer:coarse)]:size-2",
             layout.last.above ? "bg-gain" : "bg-loss"
           )}
           style={{ left: `${layout.last.x}%`, top: `${layout.last.y}%` }}
@@ -447,7 +469,7 @@ export function SentimentSparkPlot({
             {layout.streak ? (
               <div
                 className={cn(
-                  "absolute inset-y-0 border-x border-b",
+                  "bar-reveal absolute inset-y-0 border-x border-b",
                   stretch.above ? "border-gain/70" : "border-loss/70"
                 )}
                 style={{
@@ -458,7 +480,7 @@ export function SentimentSparkPlot({
             ) : null}
             {layout.ghost ? (
               <div
-                className="absolute inset-y-0 border-x border-b border-dashed border-muted-foreground/30"
+                className="bar-reveal absolute inset-y-0 border-x border-b border-dashed border-muted-foreground/30 [animation-delay:0.6s]"
                 style={{
                   left: `${layout.ghost.x0}%`,
                   width: `${Math.max(layout.ghost.x1 - layout.ghost.x0, 1)}%`,
@@ -501,7 +523,7 @@ export function SentimentStretchTrack({
         <div className={TRACK_BAR}>
           <div
             className={cn(
-              "absolute inset-y-0 left-0 rounded-full",
+              "overview-bar absolute inset-y-0 left-0 rounded-full",
               stretch.above ? "bg-gain" : "bg-loss"
             )}
             style={{ width: `${stretch.fillPct}%` }}
@@ -509,6 +531,7 @@ export function SentimentStretchTrack({
           <TrackMarker
             pct={stretch.fillPct}
             className={stretch.above ? "bg-gain" : "bg-loss"}
+            sweep
           />
         </div>
       </div>
@@ -532,14 +555,14 @@ function LinearTrack({
       {fills.map((fill) => (
         <div
           key={`${fill.fromPct}-${fill.toPct}-${fill.className}`}
-          className={cn("absolute inset-y-0 rounded-full", fill.className)}
+          className={cn("bar-reveal absolute inset-y-0 rounded-full", fill.className)}
           style={{
             left: `${fill.fromPct}%`,
             width: `${fill.toPct - fill.fromPct}%`,
           }}
         />
       ))}
-      <TrackMarker pct={markerPct} className={dotClass} />
+      <TrackMarker pct={markerPct} className={dotClass} sweep />
       {probePct != null ? (
         <TrackMarker pct={probePct} className="bg-foreground" />
       ) : null}

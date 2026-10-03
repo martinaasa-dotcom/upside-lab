@@ -22,6 +22,7 @@ import {
   COMPOUND_CASH_YIELD_ANNUAL_PCT,
   findTippingYear,
   formatMilestoneDate,
+  formatMilestoneMonth,
   loadMilestoneActuals,
   saveMilestoneActuals,
   storyYears,
@@ -214,18 +215,18 @@ const RATE_PRESETS = [
 /** The sentence printed under the rate box for whichever preset is on. */
 function rateCaveat(preset: string | null, mixPct: number): string {
   if (preset === "spy") {
-    return `${BROAD_MARKET_ANNUAL_PCT}% a year is the historical average for the whole US market, before inflation is taken off. Nobody gets it every year.`;
+    return "The whole US market's long run average, before inflation. Nobody gets it every year.";
   }
   if (preset === "book") {
-    return `This app's growth outlook for what you hold: about ${mixPct}% a year before inflation. A view of the next few years, not a record, and a big assumption over decades.`;
+    return `This app's growth outlook for what you hold, about ${mixPct}% before inflation. A view of the next few years, not a record.`;
   }
   if (preset === "15") {
-    return "15% a year is a very good stretch for the whole market, half as much again as its long run average.";
+    return "A very good stretch for the whole market.";
   }
   if (preset === "25") {
-    return "25% a year is what only a handful of years look like. Very little holds that for decades.";
+    return "Only a handful of years reach this. Very little holds it for decades.";
   }
-  return "This is the rate you typed. Nothing on this page knows whether it is realistic.";
+  return "Your own rate. Nothing here checks whether it is realistic.";
 }
 
 /** "7 years", "7 years and 3 months". Never "7y 3m". */
@@ -245,7 +246,12 @@ function milestoneWhen(row: CompoundMilestone): string {
     if (y && m && d) return formatMilestoneDate(new Date(y, m - 1, d));
   }
   if (row.hit) return "Already past it";
-  if (row.targetDate) return formatMilestoneDate(row.targetDate);
+  /*
+   * A projected date is a month, never a day: it is one typed growth rate
+   * run forward for years, and "Jun 2, 2029" claimed a precision the
+   * arithmetic does not have. A date the reader logged keeps its day.
+   */
+  if (row.targetDate) return formatMilestoneMonth(row.targetDate);
   return "50+ years out";
 }
 
@@ -628,7 +634,7 @@ function ComparePathsChart({
       </ul>
       {hoverIdx != null && (
         <div
-          className="pointer-events-none absolute top-2 max-w-[min(16rem,calc(100%-0.75rem))] rounded-md border border-border bg-card px-2.5 py-1.5 text-sm shadow-lg backdrop-blur"
+          className="pointer-events-none absolute top-2 max-w-[min(16rem,calc(100%-0.75rem))] rounded-lg border border-border bg-muted/95 px-2.5 py-1.5 text-sm shadow-sm"
           style={{
             left: `${Math.min(
               82,
@@ -744,7 +750,7 @@ function GrowthPathChart({
   const shownGrowth = growth[shown] ?? 0;
   const readout =
     shown === 0
-      ? `This is where you start: ${show(shownPaid)} in, and nothing added by growth yet.`
+      ? `The start: ${show(shownPaid)} in, no growth yet.`
       : `By ${shownYear} you would have put in ${show(shownPaid)} and growth would have added ${show(shownGrowth)}.`;
 
   return (
@@ -895,7 +901,7 @@ function GrowthPathChart({
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         {crossIdx > 0
           ? `From ${startYear + crossIdx}, more of the pot is growth than money you put in.`
-          : "Growth does not catch what you put in over this many years. A longer stretch closes the gap."}
+          : "Within this stretch, growth stays below what you put in."}
       </p>
     </div>
   );
@@ -1562,7 +1568,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         <Panel className={cn(SHEET_PANEL, "max-lg:order-1")}>
           <PanelHeader
             hero
-            title={`Where ${durationLabel} of this gets you`}
+            title={`After ${durationLabel}`}
             actions={
               <Button
                 type="button"
@@ -1630,7 +1636,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           />
 
           <div>
-            <MicroLabel>Where it comes from, year by year</MicroLabel>
+            <MicroLabel>Year by year</MicroLabel>
             <div className="mt-4">
               <GrowthPathChart
                 result={result}
@@ -1697,7 +1703,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
           <PanelHeader
             icon={<Target className="h-4 w-4" />}
-            title="When you cross each round number"
+            title="Round numbers"
           />
           {milestoneTakeaway && (
             <p className="text-sm leading-relaxed text-muted-foreground">
@@ -1776,13 +1782,10 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
 
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
-          <PanelHeader
-            title="Any single year, in words"
-            subtitle="Pick a year."
-          />
+          <PanelHeader title="Any single year, in words" />
           {/*
-            * The cells carry the number alone and the word "Year" is in the
-            * subtitle above them.
+            * The cells carry the number alone and the word "year" is in the
+            * title above them.
             *
             * A compact `Segmented` prices every cell at its longest label, so
             * "Year 10" set the width of all of them: measured at 390px the
@@ -1830,7 +1833,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
           <details className="group">
             <summary className="touch-target flex cursor-pointer list-none items-center gap-2 rounded-md py-1 text-sm text-muted-foreground transition hover:text-foreground hover:underline focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
               <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90" />
-              Show every year as a table
+              Show every year
             </summary>
             {/*
               One table at every width. A phone used to get a card per year,
@@ -1904,7 +1907,7 @@ export const CompoundInterestSheet = memo(function CompoundInterestSheet({
         </Panel>
 
         <Panel className={cn(SHEET_PANEL, "defer-paint")}>
-          <PanelHeader title="What this actually tells you" />
+          <PanelHeader title="What stands out" />
           <ItemGroup>
             {narrative.map((beat, i) => (
               <Fragment key={beat.label}>

@@ -2626,7 +2626,8 @@ run("boxes sit off the field, never the same color as the page", () => {
   assert.match(panel, /rounded-xl text-sm text-card-foreground ring-1 ring-foreground\/20/);
   assert.match(
     members,
-    /divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground\/20/
+    // The lit rim (`card-sheen`) is the same glass with its four-edge light.
+    /divide-y divide-border overflow-hidden rounded-xl (?:card-sheen )?glass ring-1 ring-foreground\/20/
   );
   /*
     The rule, not the class string it used to be written as. This asserted

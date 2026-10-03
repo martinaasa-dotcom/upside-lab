@@ -78,6 +78,7 @@ export function PowerAnimalCard({
   personality,
   milestone,
   onOpen,
+  index = 0,
 }: {
   name: string;
   isYou: boolean;
@@ -89,15 +90,18 @@ export function PowerAnimalCard({
   personality: PortfolioPersonality | null;
   milestone: { next: number | null; progress: number };
   onOpen: () => void;
+  /** Place in the list, so the cards arrive in order (motion.css). */
+  index?: number;
 }) {
   const [open, setOpen] = useState(false);
   const tone = animalCardTone(personality?.archetype.id);
   return (
     <div
       className={cn(
-        "card-sheen glass relative overflow-hidden rounded-xl ring-1 ring-foreground/20 transition",
+        "wave-in card-sheen glass relative overflow-hidden rounded-xl ring-1 ring-foreground/20 transition",
         open && "ring-primary/25"
       )}
+      style={{ ["--i" as string]: index * 2 }}
     >
       <span
         className={cn("absolute inset-y-0 left-0 w-1.5", tone.bar)}
@@ -247,7 +251,7 @@ export function PowerAnimalCard({
             <Score
               label="A rough year"
               value={`-${personality.maxDrawdownPct}%`}
-              sub="The fall this app assumes for a mix of these kinds of business in a bad stretch. Not a measurement of these companies."
+              sub="What this app assumes for this mix of businesses in a bad stretch, not a measurement."
               valueClassName="text-loss"
             />
           </Scoreboard>
@@ -407,7 +411,7 @@ export function ReadOnlyHoldings({
           No holdings in this portfolio.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
+        <div className="overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
           <FluidTable template={tableCols(6, mixedListings)}>
             <FluidRow className={cn(headRow, "hover:bg-transparent")}>
               <div className={cn(tickerCell, headerCell)}>Company</div>

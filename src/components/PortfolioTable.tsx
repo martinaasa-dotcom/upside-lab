@@ -482,8 +482,7 @@ export const PortfolioTable = memo(function PortfolioTable({
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        A screenshot or a CSV file brings every row in at once. Use whichever
-        is easier for you to get hold of.
+        A screenshot or a CSV brings in every row at once.
       </p>
     </div>
   ) : (
@@ -614,12 +613,17 @@ export const PortfolioTable = memo(function PortfolioTable({
               <span className="sm:hidden">CSV</span>
             </Button>
           )}
-          <div className="card-sheen glass-well flex items-center gap-1 rounded-lg py-1 pl-1 pr-1">
+          {/*
+            The well hugs the button, as tall as the two buttons beside it.
+            It carried its own padding around a 44px touch target, so on a
+            phone the cash stood 52px tall in a row of 44px buttons.
+          */}
+          <div className="card-sheen glass-well flex items-center rounded-lg">
             <button
               type="button"
               onClick={canCash ? onEditCash : undefined}
               disabled={!canCash}
-              className="touch-target inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              className="touch-target inline-flex h-8 items-center gap-2 rounded-lg px-3 text-left transition hover:bg-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:active:scale-100"
               title={canCash ? "Edit cash (stored in USD)" : tradeLock?.message}
             >
               <span className="text-sm font-medium text-muted-foreground">
@@ -649,12 +653,10 @@ export const PortfolioTable = memo(function PortfolioTable({
             </p>
             <p className="mt-1 text-muted-foreground">
               {unpriced.map((h) => h.ticker).join(", ")}
-              {unpriced.length === 1 ? " is" : " are"} shown at what you paid,
-              so {unpriced.length === 1 ? "it reads" : "they read"} as flat
-              rather than as missing. That usually means the company was
-              renamed or taken over, or the symbol needs correcting. Check the
-              symbol, and if the company was bought, replace the row with what
-              you hold now.
+              {unpriced.length === 1 ? " shows" : " show"} at what you paid, so
+              {unpriced.length === 1 ? " it looks" : " they look"} flat. Usually
+              a rename, a takeover or a wrong symbol. Check the symbol, or
+              replace the row with what you hold now.
             </p>
           </div>
         </div>
@@ -1110,7 +1112,7 @@ export const PortfolioTable = memo(function PortfolioTable({
               })}
             </FluidRow>
 
-            {sortedHoldings.map((h) => {
+            {sortedHoldings.map((h, row) => {
               const listed = rowMoney(h);
               return (
               <FluidRow key={h.id} className="group hover:bg-muted/50">
@@ -1190,6 +1192,7 @@ export const PortfolioTable = memo(function PortfolioTable({
                     points={h.quote?.sparkline ?? []}
                     width={56}
                     height={18}
+                    delayMs={Math.min(row, 12) * 45}
                   />
                 </div>
                 <div

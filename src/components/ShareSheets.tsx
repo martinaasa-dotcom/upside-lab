@@ -116,7 +116,7 @@ export function ShareSheets({
     <Panel>
       <PanelHeader
         title="Portfolios this circle can see"
-        subtitle="Every portfolio here is shared unless you turn it off. The circle sees today's prices only, never what you paid."
+        subtitle="Shared unless you turn one off. Nobody sees what you paid."
       />
       {error && <p className="text-sm text-loss">{error}</p>}
       <ItemGroup className="gap-2">

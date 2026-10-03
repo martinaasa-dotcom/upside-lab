@@ -71,7 +71,7 @@ export function CompanyPath({
             />
           </span>
         }
-        subtitle="One price a year, reasoned by a language model. A sketch of a plausible path, not a measurement and not a target."
+        subtitle="One price a year, from a language model. A sketch, not a target."
         icon={<TrendingUp className="h-4 w-4" />}
       />
 
@@ -96,13 +96,14 @@ export function CompanyPath({
               {currency(spot, 2, code)}
             </span>
           </li>
-          {years.map((year) => {
+          {years.map((year, i) => {
             const price = path[year] as number;
             const move = (price - spot) / spot;
             return (
               <li
                 key={year}
-                className="flex h-10 items-center justify-between px-3"
+                className="wave-in flex h-10 items-center justify-between px-3"
+                style={{ ["--i" as string]: (i + 1) * 2 }}
               >
                 <span className="font-mono text-sm tabular-nums text-muted-foreground">
                   End of {year}
@@ -133,9 +134,9 @@ export function CompanyPath({
         </p>
       )}
       <p className="text-sm leading-relaxed text-muted-foreground">
-        This is the same path {cashtag(ticker)} gets in the Growth room,
-        written once and shared, and nothing in this app moves it up or down
-        after the model has written it.
+        The same path {cashtag(ticker)} gets in the Growth room. Where the
+        model came in under this app&apos;s own growth view, it is lifted to
+        meet it.
       </p>
     </Panel>
   );

@@ -113,7 +113,7 @@ export function marketOrYouLine(
     return `${marketName} and your portfolio both barely moved ${when}.`;
   }
   if (read === "with") {
-    return `${both} You moved with the market, which is what most days look like.`;
+    return `${both} You moved with the market, like most days.`;
   }
   if (read === "against") {
     return `${both} You went the other way to the market ${when}, which is unusual.`;

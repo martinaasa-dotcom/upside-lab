@@ -165,23 +165,20 @@ export function CsvImportModal({
 
   return (
     <ViewportOverlay
-      className="z-[70] flex items-center justify-center p-4"
+      // A sheet from the bottom on a phone, like Add holding and Cash;
+      // it was the one dialog that floated as a card at the top there.
+      className="z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClose={handleClose}
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={handleClose}
       />
-      <div className="relative z-10 flex max-h-[min(100%,640px)] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-popover ring-1 ring-foreground/20">
+      <div className="relative z-10 flex max-h-[min(100%,640px)] w-full max-w-lg flex-col overflow-hidden rounded-t-xl glass-overlay modal-in ring-1 ring-foreground/20 sm:rounded-xl">
         <div className="flex items-center justify-between border-b border-border surface-gutter py-4">
-          <div className="flex items-center gap-2">
-            <FileUp className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold text-foreground">
-              Import holdings
-            </h2>
-          </div>
+          <h2 className="font-semibold text-foreground">Import holdings</h2>
           <Button
             type="button"
             variant="ghost"
@@ -207,10 +204,9 @@ export function CsvImportModal({
             and every example was one of the family's own holdings.
           */}
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Paste one holding per line: the ticker, how many you own, and
-            what you paid for one share. Or choose a CSV file from your
-            broker, with the columns Ticker, Shares, Buy Price. What you
-            paid is in that listing&apos;s own money.
+            One holding per line: ticker, shares, and what you paid for one
+            share, in that listing&apos;s own money. Or choose a CSV with
+            Ticker, Shares, Buy Price.
           </p>
 
           <Textarea
@@ -285,7 +281,7 @@ export function CsvImportModal({
               <p className="text-sm text-muted-foreground">
                 {replace
                   ? `Every holding in ${portfolioName || "this portfolio"} is removed and replaced with the rows below.`
-                  : "The rows below are added. A ticker you already hold is updated, and everything else is left as it is."}
+                  : "The rows below are added. A ticker you already hold is updated."}
               </p>
             </div>
           )}
@@ -368,7 +364,7 @@ export function CsvImportModal({
 
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-border surface-gutter py-4">
+        <div className="flex items-center justify-end gap-2 border-t border-border surface-gutter pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button type="button" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>

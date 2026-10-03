@@ -97,24 +97,24 @@ function gateReason(pathname: string): string {
   if (path.startsWith("/upside-portfolio")) {
     return (
       "The Upside Fund is one portfolio this app runs and writes up, the " +
-      "same for everybody who opens it, and it opens once you are signed in."
+      "same for everybody. It opens once you are signed in."
     );
   }
   if (path.startsWith("/communities")) {
     return (
-      "A circle is other people, so there is nothing to show somebody who " +
-      "has not signed in yet."
+      "A circle is other people, so there is nothing to show before you " +
+      "sign in."
     );
   }
   if (path.startsWith("/account")) {
     return (
       "Your account settings are about you, so there is nothing to show " +
-      "somebody who has not signed in yet."
+      "before you sign in."
     );
   }
   return (
-    "A circle is other people and your account settings are about you, so " +
-    "there is nothing to show somebody who has not signed in yet."
+    "Circles and account settings are about people, so there is nothing " +
+    "to show before you sign in."
   );
 }
 
@@ -351,7 +351,7 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
     : {
         title: "Sign in to Upside Lab.",
         detail:
-          "Add what you own and it tells you, in plain words, what happened at those companies each day.",
+          "Add what you own. Each day it says, in plain words, what happened at those companies.",
       };
 
   /*
@@ -603,7 +603,7 @@ function LookAroundStrip({
         later in the document, this notice sat on top of Add holding on a
         phone and covered the search results a reader was choosing from.
       */
-      className="bottom-notice fixed z-40 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:left-1/2 sm:right-auto sm:w-[34rem] sm:-translate-x-1/2"
+      className="bottom-notice bottom-notice-beside fixed z-40 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:left-1/2 sm:right-auto sm:w-[34rem] sm:-translate-x-1/2"
       role="region"
       aria-label="Sample portfolio"
     >
@@ -621,8 +621,17 @@ function LookAroundStrip({
         beside a sentence that already names the sample.
       */}
       <div className="flex flex-row items-center gap-3 rounded-xl glass-overlay ring-1 ring-foreground/20 px-3.5 py-2.5 sm:gap-4 sm:p-4">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">
-          A sample: the holdings are made up and the prices are real.
+        {/*
+          The phone says both halves in four words. The whole sentence
+          wrapped to three lines beside the two buttons there and stood
+          87px tall over the room; this is two short lines, as tall as
+          the buttons beside it.
+        */}
+        <p className="min-w-0 flex-1 text-sm leading-snug text-foreground sm:leading-relaxed">
+          <span className="sm:hidden">Sample holdings, real prices.</span>
+          <span className="hidden sm:inline">
+            A sample: the holdings are made up and the prices are real.
+          </span>
         </p>
         <div className="flex shrink-0 gap-2">
           <Button type="button" size="sm" disabled={busy} onClick={onSignIn}>

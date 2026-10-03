@@ -148,15 +148,17 @@ function TradeSpark({ trade, colour }: { trade: Trade; colour: string }) {
             <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <polygon points={area} fill={`url(#fund-trade-${gid})`} className="text-foreground" />
-        <polyline
-          points={line}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          vectorEffect="non-scaling-stroke"
-          className="text-foreground/60"
-        />
+        <g className="line-reveal">
+          <polygon points={area} fill={`url(#fund-trade-${gid})`} className="text-foreground" />
+          <polyline
+            points={line}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+            className="text-foreground/60"
+          />
+        </g>
       </svg>
       {/* The mark is HTML so it stays round whatever the chart's shape. */}
       <span

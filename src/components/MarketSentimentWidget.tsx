@@ -352,7 +352,7 @@ export function MarketSentimentWidget({
               showScales ? undefined : "hidden md:block"
             )}
           >
-            Drag along a bar to see what another reading would mean.
+            Drag a bar to try another reading.
           </p>
         ) : null}
         {/*

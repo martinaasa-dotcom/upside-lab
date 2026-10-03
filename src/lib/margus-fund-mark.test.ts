@@ -3,6 +3,7 @@ import {
   fundDayNumber,
   fundQuoteCoverage,
   fundTotalReturn,
+  fundDayBaseline,
   liveFundTodayMove,
   liveFundTotalValue,
   spyReturnSince,
@@ -57,6 +58,37 @@ describe("today's move needs a yesterday", () => {
     });
     expect(move.todayDollar).toBeCloseTo(325.87, 2);
     expect(move.todayPct).toBeCloseTo(0.004596, 6);
+  });
+});
+
+describe("what today is measured against", () => {
+  const reports = [
+    { report_date: "2026-10-01", portfolio_value: 70_000 },
+    { report_date: "2026-10-02", portfolio_value: 71_000 },
+    { report_date: "2026-09-30", portfolio_value: 69_000 },
+  ];
+
+  it("is the report before today once the evening report has written today", () => {
+    // Friday 2 October 2026, 20:00 in New York: the newest report is
+    // today's own close, and measuring against it printed $0 today.
+    const evening = new Date("2026-10-03T00:00:00Z");
+    expect(fundDayBaseline(reports, evening)).toBe(70_000);
+  });
+
+  it("is the newest report while the session is under way", () => {
+    const midday = new Date("2026-10-02T16:00:00Z");
+    expect(fundDayBaseline(reports.slice(0, 1), midday)).toBe(70_000);
+  });
+
+  it("shows the last session's move across a weekend", () => {
+    // Saturday: the last session is Friday, measured from Thursday's close.
+    const saturday = new Date("2026-10-03T15:00:00Z");
+    expect(fundDayBaseline(reports, saturday)).toBe(70_000);
+  });
+
+  it("keeps the newest report when an older payload carries no dates", () => {
+    expect(fundDayBaseline([{ portfolio_value: 5 }, { portfolio_value: 4 }])).toBe(5);
+    expect(fundDayBaseline([])).toBeNull();
   });
 });
 

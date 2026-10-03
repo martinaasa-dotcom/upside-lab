@@ -51,8 +51,8 @@ export function supporterButtonLabel(active: boolean): string {
 
 /** The offer, for somebody who is not paying. One line, no salesmanship. */
 export const SUPPORTER_OFFER =
-  `${SUPPORTER_MONTHLY}. It adds no features at all, and it is not going to. ` +
-  "It pays for the market data, the servers and the time that go into building this.";
+  `${SUPPORTER_MONTHLY}. It adds no features, and never will. ` +
+  "It pays for the market data, the servers and the time this takes to build.";
 
 /** The one light sentence, at the same weight as the fact above it. */
 export const SUPPORTER_ASIDE =

@@ -2743,3 +2743,67 @@ dev server refused to compile the stylesheet and every page rendered
 unstyled. A production build dropped the rule and survived, which is why it
 had not been noticed. **Do not write a Tailwind class with a placeholder
 inside it in any file Tailwind scans.**
+
+## The shared motion language (2026-10-02)
+
+The dock had a vocabulary of its own and the rest of the product spoke in
+fills that appeared and vanished. `src/app/motion.css` lends the dock's
+vocabulary to everything else, and every rule in it keeps the three this
+app's motion already keeps: transform, opacity, a clip or the independent
+`scale` property only, so the compositor carries it while a room renders;
+nothing moves a figure somebody is reading; nothing survives
+`prefers-reduced-motion`.
+
+**One marker for every choice (`SlideThumb`).** Every `Segmented` control,
+Lab's tab row, the Risk scenario chips and the retirement market-year
+presets carry one gold thumb behind their cells that travels to the chosen
+one, on the dock's own curve (`eased` from `dock-motion.ts`), leading edge
+first so it stretches and settles: 340ms with a 30ms trailing lag. The
+keyframes are `thumbTravel` in `src/lib/slide-thumb.ts`, pure and tested,
+and they work on both axes because a filled grid can wrap. The label's
+colour arrives 90ms after the thumb sets off, since dark type on a cell the
+gold has not reached is unreadable for the length of the flight. Three
+rules carried over from the dock: a hidden track does not measure, the
+first placement and any resize arrive rather than travel, and reduced
+motion always arrives. **Every thumb in a room is measured in one pass,
+reads before writes**: measuring inside each thumb's own layout effect
+forced a layout per thumb, 284ms over six room hops at 4x CPU; batched in
+one animation frame it is about 25ms. Until a thumb is placed the chosen
+cell paints its own fill, so the frame in between is invisible and a page
+without scripts is still right.
+
+**A marker travels to its reading (`.sweep-in`, `Sweep.tsx`).** A gauge's
+dot sets off from the start of its scale, or from fair value
+(`--from-at: 0.5`), and runs to its value. The marker keeps its own `left`;
+a wrapper the full width of the track is what moves, translated by the
+marker's share of the track, so no measuring is needed.
+
+**Bars grow from their own baseline** (`.grow-up`, `.grow-down`,
+`.grow-out` with `--from`), **grids arrive as a wave** (`.wave-in`), each
+in sequence from `--i`, capped by the caller so a long list is never still
+arriving when somebody reads it.
+
+**Held until seen (`play-in-view.ts`, `ArrivalWatcher`).** An arrival
+animation that mounts out of sight waits on its first frame until a reader
+scrolls to it. One `MutationObserver` (added nodes only, so a quote poll
+costs nothing) finds every element with an arrival class and one
+`IntersectionObserver` judges it, from its first report rather than a rect
+read at mount, because a section mounts where it will not stay while the
+panels above it arrive. Decided on the client, so nothing is paused in the
+server's markup; released once, so returning replays nothing; and never on
+the signed-out landing, which has no scroll reveals. `ARRIVAL_SELECTOR`
+and the held rule in `motion.css` list the same classes and
+`play-in-view.test.ts` fails if they drift.
+
+**A press gives.** Buttons go to 0.96 in 75ms and come back over 200ms; a
+gold button sends one band of light across itself on hover and never plays
+it backwards. A segmented cell gives under the finger, and pressing the
+chosen one squeezes the thumb with it (`scale`, which composes with the
+travel transform). On a phone with a vibration motor a changed choice
+ticks once (`haptic.ts`).
+
+**Charts say where now is.** `.chart-now-dot` sits on a chart's last
+point, arrives as the line finishes drawing and sends a ring out every
+couple of seconds; `.chart-scrub-dot` replaces it under a finger. Both are
+HTML placed in per cent of the plot, because an SVG circle in a stretched
+viewBox is an oval.

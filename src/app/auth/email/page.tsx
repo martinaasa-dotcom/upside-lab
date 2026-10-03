@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { HeaderBrand } from "@/components/HeaderBrand";
+import { MessageLine, MessageScreen } from "@/components/MessageScreen";
 import { Button } from "@/components/ui/button";
 import { maskAddress } from "@/lib/auth/account-addresses";
 import { emailLoginTarget } from "@/lib/auth/email-login";
@@ -61,42 +61,11 @@ export default async function EmailSignInPage({
   const opens = target ? maskAddress(target.email) : null;
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <header className="border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <HeaderBrand />
-          {/*
-            Not "Back". A reader arrives here from their mail app, so there
-            is nowhere behind them to go, and on the linked page the main
-            button below already says the same thing this one links to.
-          */}
-          <Button asChild variant="outline" size="sm">
-            <Link href="/">Open {PRODUCT_NAME}</Link>
-          </Button>
-        </div>
-      </header>
-
-      <main
-        id="main"
-        className="surface-gutter mx-auto flex min-w-0 max-w-lg flex-col gap-4 py-16 text-sm leading-relaxed"
-      >
-        <h1 className="text-2xl font-semibold">
-          {failed ? "That link did not work" : `Sign in to ${PRODUCT_NAME}`}
-        </h1>
-
-        <p className="text-muted-foreground">
-          {failed ??
-            (opens
-              ? `Press the button to open the account for ${opens}. Opening this page is not enough on purpose: a mail app often loads the link before you do.`
-              : "Press the button to open your account. Opening this page is not enough on purpose: a mail app often loads the link before you do.")}
-        </p>
-
-        {switching && ready ? (
-          <p className="text-muted-foreground">{OTHER_SESSION}</p>
-        ) : null}
-
-        {ready ? (
-          <form method="post" action="/auth/email/complete" className="mt-2">
+    <MessageScreen
+      title={failed ? "That link did not work" : `Sign in to ${PRODUCT_NAME}`}
+      actions={
+        ready ? (
+          <form method="post" action="/auth/email/complete">
             <input type="hidden" name="token" value={token} />
             {switching ? <input type="hidden" name="switch" value="1" /> : null}
             <Button type="submit">
@@ -104,13 +73,19 @@ export default async function EmailSignInPage({
             </Button>
           </form>
         ) : (
-          <div className="mt-2">
-            <Button asChild>
-              <Link href="/">Back to {PRODUCT_NAME}</Link>
-            </Button>
-          </div>
-        )}
-      </main>
-    </div>
+          <Button asChild>
+            <Link href="/">Back to {PRODUCT_NAME}</Link>
+          </Button>
+        )
+      }
+    >
+      <MessageLine>
+        {failed ??
+          (opens
+            ? `Press the button to open the account for ${opens}. Opening this page is not enough on purpose: a mail app often loads the link before you do.`
+            : "Press the button to open your account. Opening this page is not enough on purpose: a mail app often loads the link before you do.")}
+      </MessageLine>
+      {switching && ready ? <MessageLine>{OTHER_SESSION}</MessageLine> : null}
+    </MessageScreen>
   );
 }

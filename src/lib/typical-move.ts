@@ -29,10 +29,10 @@ const MIN_DAYS = 12;
  * days start to be worth remarking on rather than merely being above the
  * middle. Days between here and `BIG_MULTIPLE` are "bigger than usual".
  */
-const ORDINARY_MULTIPLE = 1.6;
+export const ORDINARY_MULTIPLE = 1.6;
 
 /** At or above this multiple, the day is worth a sentence of its own. */
-const BIG_MULTIPLE = 3;
+export const BIG_MULTIPLE = 3;
 
 export type DaySize = "ordinary" | "bigger" | "big";
 
@@ -232,11 +232,10 @@ export function portfolioDayLine(
    * amount, and the pronoun that later refers back to that same day. */
   const session = when === "friday" ? lastSessionName() : null;
   const tail = session ? `on ${session}` : "today";
-  const thatDay = session ?? "today";
   // A past session is said in the past tense: "was up $218 on Friday".
   const is = session ? "was" : "is";
   if (size === "ordinary") {
-    return `Your portfolio ${is} ${way} ${moved} ${tail}. It moves about ${ordinaryDollar} on an ordinary day, so ${thatDay} is one of those.`;
+    return `Your portfolio ${is} ${way} ${moved} ${tail}, an ordinary move. Most days it moves about ${ordinaryDollar}.`;
   }
   if (size === "bigger") {
     return `Your portfolio ${is} ${way} ${moved} ${tail}, more than the ${ordinaryDollar} of an ordinary day.`;

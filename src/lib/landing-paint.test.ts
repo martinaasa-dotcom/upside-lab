@@ -80,6 +80,11 @@ describe("the landing does not hide itself before paint", () => {
     );
   });
 
+  it("keeps the app's hold-until-seen watcher off the landing", () => {
+    const watcher = readFileSync("src/lib/play-in-view.ts", "utf8");
+    expect(watcher).toMatch(/closest\("\.landing-field"\)\) return/);
+  });
+
   it("does not fade sections in on scroll", () => {
     expect(LANDING).not.toContain("IntersectionObserver");
     expect(LANDING).not.toContain("data-reveal");

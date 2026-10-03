@@ -1,5 +1,6 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
 import { ArrowRight, CalendarDays, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
@@ -284,21 +285,25 @@ function FairGauge({ gap, scale }: { gap: number; scale: number }) {
     <span className="relative block h-3" aria-hidden>
       <span className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-foreground/10" />
       <span
-        className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full opacity-60"
+        className="grow-out absolute top-1/2 h-1 -translate-y-1/2 rounded-full opacity-60"
         style={{
           background: colour,
           width: `${reach}%`,
+          ["--from" as string]: below ? "right" : "left",
           ...(below ? { right: "50%" } : { left: "50%" }),
         }}
       />
       <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-foreground/45" />
-      <span
-        className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background"
-        style={{
-          background: colour,
-          left: `${below ? 50 - reach : 50 + reach}%`,
-        }}
-      />
+      {/* The dot sets off from fair value and runs to the price. */}
+      <Sweep at={(below ? 50 - reach : 50 + reach) / 100} from={0.5}>
+        <span
+          className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background"
+          style={{
+            background: colour,
+            left: `${below ? 50 - reach : 50 + reach}%`,
+          }}
+        />
+      </Sweep>
     </span>
   );
 }

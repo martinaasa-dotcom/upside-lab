@@ -77,13 +77,13 @@ export function CashModal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
       <form
         onSubmit={submit}
-        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:rounded-xl"
+        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl glass-overlay modal-in ring-1 ring-foreground/20 modal-pad sm:rounded-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>

@@ -4,7 +4,14 @@
  * same formula so they never disagree.
  */
 
+import {
+  lastCompletedUsSessionKey,
+  nyWallClock,
+} from "@/lib/market/session";
 import { finiteNumber, roundMoney, safeDiv, sumMoney } from "@/lib/money";
+import { dateKeyInTz } from "@/lib/timezone";
+
+const US_TZ = "America/New_York";
 
 export type FundMarkHolding = {
   ticker: string;
@@ -118,6 +125,42 @@ export function liveFundTodayMove(input: {
     todayDollar,
     todayPct: prev > 0 ? safeDiv(todayDollar, prev) : null,
   };
+}
+
+/**
+ * The closing figure "today" is measured against.
+ *
+ * The evening report writes the day that just closed, so after it lands
+ * the newest report IS today's close, and measuring the live total
+ * against it printed "$0, 0.0% today" over the Fund every evening and all
+ * weekend, on the one figure a reader opens the room for. "Today" means
+ * the session the rest of the app means by it: the one under way, or
+ * after the overnight gap the one that last traded, and its baseline is
+ * the newest report written BEFORE that session.
+ *
+ * Reports without a date (an older cached payload) keep the old reading,
+ * the newest report, rather than guessing.
+ */
+export function fundDayBaseline(
+  reports: ReadonlyArray<{
+    report_date?: string | null;
+    portfolio_value?: number | null;
+  }>,
+  now: Date = new Date()
+): number | null {
+  if (reports.length === 0) return null;
+  if (!reports.every((r) => typeof r.report_date === "string")) {
+    return reports[0]?.portfolio_value ?? null;
+  }
+  const { minutes, weekday } = nyWallClock(now);
+  const weekdayAfterFour = weekday !== 0 && weekday !== 6 && minutes >= 4 * 60;
+  const dayKey = weekdayAfterFour
+    ? dateKeyInTz(now, US_TZ)
+    : lastCompletedUsSessionKey(now);
+  const before = [...reports]
+    .sort((a, b) => (a.report_date! < b.report_date! ? 1 : -1))
+    .find((r) => r.report_date! < dayKey);
+  return before?.portfolio_value ?? null;
 }
 
 export function fundDayNumber(inceptionDate: string | null | undefined): number {

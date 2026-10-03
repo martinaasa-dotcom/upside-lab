@@ -23,12 +23,12 @@ export const metadata = publicPageMetadata({
 
 export default function TermsPage() {
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <header className="border-b border-border bg-background/90 backdrop-blur">
+    <div className="page-frame min-h-dvh bg-background text-foreground">
+      <header className="border-b border-border">
         <div className="surface-gutter mx-auto flex max-w-3xl items-center justify-between gap-3 py-3">
           <HeaderBrand />
           <Button asChild variant="outline" size="sm">
-            <Link href="/">Back</Link>
+            <Link href="/">Open Upside Lab</Link>
           </Button>
         </div>
       </header>

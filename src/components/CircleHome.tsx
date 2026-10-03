@@ -20,6 +20,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarGroup,
+  AvatarGroupCount,
   AvatarImage,
 } from "@/components/ui/avatar";
 import {
@@ -82,26 +83,44 @@ function SharedNameRow({
   people,
   todayPct,
   avatarByName,
+  index = 0,
 }: {
   ticker: string;
   people: string[];
   todayPct: number | null;
   avatarByName: Map<string, string>;
+  /** Place in the list, so the rows arrive in order (motion.css). */
+  index?: number;
 }) {
   return (
-    <Item size="sm" className="px-0">
+    <Item
+      size="sm"
+      className="wave-in px-0"
+      style={{ ["--i" as string]: index }}
+    >
       <>
         <ItemMedia className="w-20">
+          {/*
+            Three faces and a count, each with one letter. Every name is
+            printed beside the stack, so the stack only has to read as
+            people; with two letters each, the overlap cut every second
+            letter in half and four friends read as "AI P! LI JM".
+          */}
           <AvatarGroup>
-            {people.map((name) => {
+            {people.slice(0, 3).map((name) => {
               const src = avatarByName.get(name);
               return (
                 <Avatar key={name} size="sm">
                   {src ? <AvatarImage src={src} alt="" /> : null}
-                  <AvatarFallback>{initialsFromName(name)}</AvatarFallback>
+                  <AvatarFallback>
+                    {initialsFromName(name).slice(0, 1)}
+                  </AvatarFallback>
                 </Avatar>
               );
             })}
+            {people.length > 3 ? (
+              <AvatarGroupCount>+{people.length - 3}</AvatarGroupCount>
+            ) : null}
           </AvatarGroup>
         </ItemMedia>
         <ItemContent>
@@ -312,7 +331,7 @@ export function CircleHome({
             <Panel className="overview-fade order-1">
               <PanelHeader
                 title="Two steps and this circle is live"
-                subtitle="Everyone here will see how each portfolio moved, which companies are in it, how many shares of each, and what the whole thing is worth today. What anybody paid stays theirs."
+                subtitle="Everyone here sees each portfolio's companies, shares, value and daily moves. What anybody paid stays theirs."
               />
 
               <div className="flex flex-col gap-2">
@@ -328,8 +347,8 @@ export function CircleHome({
                     2. Send the link
                   </p>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Anyone with the link can join. You can turn it off later,
-                    and more settings live on the Members tab.
+                    Anyone with the link can join. Turn it off any time on the
+                    Members tab.
                   </p>
                   {inviteUrl ? (
                     <div className="card-sheen glass-well flex flex-wrap items-center gap-3 rounded-lg p-3">
@@ -360,8 +379,8 @@ export function CircleHome({
                 </div>
               ) : (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  Nobody else has shared a portfolio here yet. Yours will show
-                  up as soon as you pick one above.
+                  Nobody has shared a portfolio yet. Yours appears once you
+                  pick one above.
                 </p>
               )}
             </Panel>
@@ -379,7 +398,6 @@ export function CircleHome({
               <PanelHeader
                 icon={<History className="h-4 w-4" />}
                 title="Since you last looked"
-                subtitle="What people bought and sold while you were away"
               />
               <ul className="flex flex-col gap-1.5">
                 {changes.map((line) => (
@@ -416,7 +434,7 @@ export function CircleHome({
               <PanelHeader
                 icon={<Sparkles className="h-4 w-4" />}
                 title="Power animals"
-                subtitle="How each portfolio is put together. Tap a row to open it up."
+                subtitle="How each portfolio is built."
                 actions={
                   <Button
                     type="button"
@@ -436,9 +454,10 @@ export function CircleHome({
                 }
               />
               <div className="flex flex-col gap-2">
-                {membersWithBooks.map((m) => (
+                {membersWithBooks.map((m, i) => (
                   <PowerAnimalCard
                     key={m.id}
+                    index={i}
                     name={m.name}
                     isYou={m.isYou}
                     isPending={m.isPending}
@@ -467,17 +486,18 @@ export function CircleHome({
               <PanelHeader
                 icon={<Award className="size-4" />}
                 title="Who stands out"
-                subtitle="One each, for whatever they are furthest ahead on"
+                subtitle="One award each, for what they lead on."
               />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {achievements.map((a) => (
+                {achievements.map((a, i) => (
                   <button
                     key={a.id}
                     type="button"
                     onClick={() => {
                       onOpenMember(a.winnerId);
                     }}
-                    className="veil-hover card-sheen glass-well flex w-full flex-col gap-1.5 rounded-lg p-3 text-left ring-1 ring-foreground/20 lift hover:ring-primary/25"
+                    style={{ ["--i" as string]: i * 2 }}
+                    className="wave-in veil-hover card-sheen glass-well flex w-full flex-col gap-1.5 rounded-lg p-3 text-left ring-1 ring-foreground/20 lift hover:ring-primary/25"
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -594,7 +614,7 @@ export function CircleHome({
                   icon={<Layers className="h-4 w-4" />}
                   iconTone="emerald"
                   title="Holdings you share"
-                  subtitle="The companies more than one of you owns"
+                  subtitle="Owned by more than one of you"
                 />
                 <ItemGroup className="gap-0 has-data-[size=sm]:gap-0">
                   {sharedNames.map((row, i) => (
@@ -605,6 +625,7 @@ export function CircleHome({
                         people={row.people}
                         todayPct={row.todayPct}
                         avatarByName={avatarByName}
+                        index={i}
                       />
                     </Fragment>
                   ))}
@@ -618,7 +639,7 @@ export function CircleHome({
               <PanelHeader
                 icon={<PieChart className="h-4 w-4" />}
                 title="What the circle owns"
-                subtitle="Everyone's holdings added together and grouped by kind of business, with yours under it."
+                subtitle="Everyone's holdings by kind of business, with yours below."
               />
               {/*
                 The two bars are one reading, so they are one child of the
@@ -661,7 +682,7 @@ export function CircleHome({
                 title="Circle facts"
                 subtitle={
                   funFactsShuffle > 0
-                    ? "These are shuffled. Reload the page for today's own set."
+                    ? "Shuffled. Reload for today's set."
                     : "A new set every day"
                 }
                 actions={
@@ -708,7 +729,10 @@ export function CircleHome({
                         * and the first line share a half-leading and
                         * land on the same baseline by construction
                         * rather than by a hand-tuned offset. */}
-                      <Item className="items-start px-0">
+                      <Item
+                        className="wave-in items-start px-0"
+                        style={{ ["--i" as string]: i * 2 }}
+                      >
                         <ItemMedia
                           className="w-4 justify-start self-start text-sm leading-relaxed tabular-nums text-muted-foreground"
                           aria-hidden

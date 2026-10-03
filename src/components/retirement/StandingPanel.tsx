@@ -168,6 +168,7 @@ function PathChart({
               stroke={PALETTE.gain}
               strokeWidth={2.5}
               vectorEffect="non-scaling-stroke"
+              className="line-reveal"
             />
           </svg>
           {/*
@@ -352,7 +353,7 @@ export function StandingPanel({
         <PanelHeader
           icon={<TrendingUp className="h-4 w-4" />}
           title="Where you stand"
-          subtitle="The pot from today to the end of the plan, and the milestones on the way."
+          subtitle="Your pot over the plan, and the milestones on the way."
         />
 
         {/*
@@ -369,10 +370,10 @@ export function StandingPanel({
           </span>
           {target > 0 ? (
             <>
-              , {percent(Math.min(1, have / target), 0)} of your number
+              , {percent(Math.min(1, have / target), 0)} of what you need
             </>
           ) : null}
-          . Left alone with nothing more added, that grows to{" "}
+          . With nothing more added, that grows to{" "}
           <span className="font-mono tabular-nums text-foreground">
             {currency(plan.projectedFromTodayOnly, 0, code)}
           </span>{" "}
@@ -387,7 +388,7 @@ export function StandingPanel({
           second half now: the thresholds on the way, and when each falls.
         */}
         <div className="flex flex-col gap-3">
-          <MicroLabel>On the way to your number</MicroLabel>
+          <MicroLabel>Milestones</MicroLabel>
           <LadderTrack milestones={milestones} pot={have} code={code} />
         </div>
         <ul className="divide-y divide-border">

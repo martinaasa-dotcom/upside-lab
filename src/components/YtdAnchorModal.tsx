@@ -89,13 +89,13 @@ export function YtdAnchorModal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
         aria-label="Close"
         onClick={onClose}
       />
       <form
         onSubmit={submit}
-        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl bg-popover ring-1 ring-foreground/20 modal-pad sm:rounded-xl"
+        className="scroll-host relative max-h-full w-full max-w-md overflow-y-auto rounded-t-xl glass-overlay modal-in ring-1 ring-foreground/20 modal-pad sm:rounded-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
@@ -103,8 +103,8 @@ export function YtdAnchorModal({
               Your real year
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              The chart still draws its shape from what you hold today. This
-              number sets how big the year actually was.
+              The chart&apos;s shape comes from what you hold today. This sets
+              how big the year was.
             </p>
           </div>
           <Button
@@ -144,7 +144,7 @@ export function YtdAnchorModal({
         <p className="mt-3 text-sm text-muted-foreground">or</p>
 
         <label className="mt-3 grid gap-1 text-sm text-muted-foreground">
-          What your broker says you are up or down this year (%)
+          Up or down this year, per your broker (%)
           <Input
             type="text"
             inputMode="decimal"

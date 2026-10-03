@@ -4,6 +4,7 @@ import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { cn, currency, signedCurrency, signedTone } from "@/lib/format";
 import {
   fundDayNumber,
+  fundDayBaseline,
   liveFundTodayMove,
   liveFundTotalValue,
 } from "@/lib/margus-fund-mark";
@@ -49,6 +50,7 @@ function teaserFromFundCache(): FundTeaser | null {
           headline?: string;
           portfolio_value?: number;
           cash?: number;
+          report_date?: string;
         }>;
         quotes?: Record<string, { price?: number }>;
       }
@@ -66,7 +68,7 @@ function teaserFromFundCache(): FundTeaser | null {
   });
   const { todayDollar, todayPct } = liveFundTodayMove({
     liveTotal: totalValue,
-    lastReportValue: latest?.portfolio_value,
+    lastReportValue: fundDayBaseline(cached.reports ?? []),
   });
   return {
     totalValue,

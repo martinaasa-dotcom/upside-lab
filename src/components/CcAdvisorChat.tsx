@@ -1007,20 +1007,20 @@ export function CcAdvisorChat({
   const suggestions = useMemo(() => {
     if (context.holdings.length === 0) {
       return [
-        "How do I get my holdings in here?",
-        "What can you help me with?",
-        "Explain how this portfolio page works",
+        "How do I add my holdings?",
+        "What can you help with?",
+        "How does this page work?",
       ];
     }
     const plain = [
       "What moved today, and why?",
-      "Explain my biggest holding in plain English",
-      "Am I too heavy in any one company?",
-      "Which of my holdings moved the most this week?",
+      "Explain my biggest holding",
+      "Am I too heavy in one company?",
+      "What moved most this week?",
       "What’s up most since I bought it?",
     ];
     if (context.hideOptions || context.rows.length === 0) return plain.slice(0, 4);
-    return [...plain.slice(0, 3), "How do my covered-call numbers look today?"];
+    return [...plain.slice(0, 3), "How do my covered calls look?"];
   }, [context.hideOptions, context.holdings.length, context.rows.length]);
 
   const canSend = !busy && (Boolean(input.trim()) || pendingImages.length > 0);
@@ -1058,7 +1058,10 @@ export function CcAdvisorChat({
             // input at every width. The keyboard rule in globals.css
             // drops the lift while the keys are up (the dock is hidden
             // then, and `--vv-height` is already the band above them).
-            "margus-open pointer-events-none fixed z-40 flex flex-col items-end justify-end gap-3 px-3 pt-3 pb-[max(0.75rem,var(--dock-clearance,var(--dock-pad,0.75rem)))]"
+            // z-[45] while open: one step over the notices pinned at
+            // the dock line (z-40), which otherwise sat on the message
+            // box at a phone's width, and still under every dialog.
+            "margus-open pointer-events-none fixed z-[45] flex flex-col items-end justify-end gap-3 px-3 pt-3 pb-[max(0.75rem,var(--dock-clearance,var(--dock-pad,0.75rem)))]"
           : // `lg:bottom-8` is gone on purpose. The bottom dock is
             // `fixed inset-x-0 bottom-0` at every width, so a flat 2rem
             // offset put this button *underneath* it on desktop: the dock
@@ -1257,7 +1260,7 @@ export function CcAdvisorChat({
                       <BookOpen className="h-4 w-4" />
                     </button>
                     {rulesOpen && (
-                      <div className="absolute right-0 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-md ring-1 ring-foreground/20">
+                      <div className="absolute right-0 top-full z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border glass-overlay p-3 text-popover-foreground shadow-md ring-1 ring-foreground/20 animate-in fade-in-0 zoom-in-95 duration-100 motion-reduce:animate-none">
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-muted-foreground">
                             Strategy rules
@@ -1314,20 +1317,22 @@ export function CcAdvisorChat({
             className="scroll-host flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto surface-gutter py-5"
           >
             {messages.length === 0 && (
-              <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted p-4">
+              <div className="card-sheen glass-well flex flex-col gap-3 rounded-lg p-4">
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {context.hideOptions
-                    ? "I can read your holdings, and I can change the number of shares, the buy price or the cash, and add or remove holdings for you."
-                    : "I can read your holdings and your covered calls, and I can change shares, buy price, cash and Call %, and add or remove holdings for you. The Strategy rules button above spells out how the covered-call numbers are picked."}
+                    ? "Ask about anything you own. I can also change shares, buy price and cash, or add and remove holdings."
+                    : "Ask about anything you own or your covered calls. I can also change shares, buy price, cash and Call %, or add and remove holdings."}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {suggestions.map((s) => (
+                  {suggestions.map((s, i) => (
                     <Button
                       key={s}
                       type="button"
                       variant="outline"
                       size="sm"
                       disabled={busy}
+                      className="wave-in"
+                      style={{ ["--i" as string]: i * 3 }}
                       onClick={() => sendMessage({ text: s })}
                     >
                       {s}

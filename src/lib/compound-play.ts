@@ -141,14 +141,14 @@ export function buildCompareScenarios(inputs: CompoundInputs): CompareScenario[]
     {
       id: "mattress",
       label: "Under the mattress",
-      tagline: `No growth at all, and rising prices take about ${COMPOUND_INFLATION_ANNUAL_PCT}% a year off what it can buy. An assumption typed into this app.`,
+      tagline: `No growth, and rising prices take about ${COMPOUND_INFLATION_ANNUAL_PCT}% a year off what it buys. An assumption typed into this app.`,
       result: mattress,
       color: PALETTE.muted,
     },
     {
       id: "cash",
-      label: "Cash in a savings account",
-      tagline: `About ${COMPOUND_CASH_YIELD_ANNUAL_PCT}% a year, roughly what a good savings account has paid lately. An assumption, not a quote.`,
+      label: "Savings account",
+      tagline: `About ${COMPOUND_CASH_YIELD_ANNUAL_PCT}% a year, roughly a good savings account lately. An assumption, not a quote.`,
       result: cashYield,
       color: PALETTE.teal,
     },
@@ -156,8 +156,8 @@ export function buildCompareScenarios(inputs: CompoundInputs): CompareScenario[]
       id: "spy",
       label: yourRateIsMarket ? "Index fund, and your rate" : "Index fund",
       tagline: yourRateIsMarket
-        ? `About ${BROAD_MARKET_ANNUAL_PCT}% a year, the long run average for the whole US market before inflation is taken off. It is also the number in your box, so both are this one line.`
-        : `About ${BROAD_MARKET_ANNUAL_PCT}% a year, the long run average for the whole US market before inflation is taken off.`,
+        ? `About ${BROAD_MARKET_ANNUAL_PCT}% a year, the whole US market's long run average before inflation. Also the number in your box.`
+        : `About ${BROAD_MARKET_ANNUAL_PCT}% a year, the whole US market's long run average before inflation.`,
       result: spy,
       color: yourRateIsMarket ? PALETTE.bronze : PALETTE.steel,
     },
@@ -226,36 +226,32 @@ function beat(label: string, rng: () => number, bodies: string[]): NarrativeBeat
  * market did.
  */
 const NARRATIVE_ANGLES: NarrativeAngle[] = [
-  ({ result, tip, fmt, rng }) => {
+  ({ result, fmt, rng }) => {
     if (!(result.totalContributions > 0)) return null;
-    const tipSuffix = tip
-      ? ` From year ${tip}, growth adds more each year than you pay in.`
-      : "";
     return beat("Money you pay in", rng, [
-      `You would pay in ${fmt(result.totalContributions)} along the way. Your deposits are the fuel, and growth is the curve that bends upward.${tipSuffix}`,
-      `${fmt(result.totalContributions)} of that final number would be your own deposits. The rest is growth on top of them.${tipSuffix}`,
-      `${fmt(result.totalContributions)} paid in along the way, on top of what you started with. Everything past that is the curve bending.${tipSuffix}`,
+      `You would pay in ${fmt(result.totalContributions)} along the way.`,
+      `${fmt(result.totalContributions)} of the end figure would be your own deposits.`,
+      `${fmt(result.totalContributions)} paid in along the way.`,
     ]);
   },
   ({ result, tip, fmt, rng }) => {
     if (result.totalContributions > 0 || tip != null) return null;
     const doubleText = yearsAndMonths(result.doubleYears, result.doubleMonths);
     return beat("Nothing added", rng, [
-      `No fresh deposits, just growth on what is already there. At this rate the pot doubles about every ${doubleText}.`,
-      `No new money at all. ${fmt(result.totalInterest)} of the end figure would come from letting it sit.`,
-      `This path never sees another deposit. Doubling about every ${doubleText} does the rest.`,
+      `No new money, just growth. The pot doubles about every ${doubleText}.`,
+      `No new money. ${fmt(result.totalInterest)} of the end figure would be growth.`,
+      `No deposits at all. Doubling about every ${doubleText} does the rest.`,
     ]);
   },
   /*
-   * There is deliberately no beat about the year growth takes over.
+   * There is deliberately no beat about the year growth takes over, and no
+   * suffix about it either.
    *
-   * That year already has a score cell of its own a screen above, headed
-   * "When growth takes over", carrying the year and the sentence "From this
-   * year, growth adds more than you pay in". A beat here said the same
-   * thing in the same words, so the panel that exists to add something
-   * spent one of its five slots repeating a cell. The tipping year is still
-   * mentioned where it is a qualifier rather than the point, as the suffix
-   * on "Money you pay in".
+   * That year already sits on the paths chart's own pill a screen above,
+   * "Growth takes over in year N", with the sentence behind it. A beat here
+   * said the same thing in the same words, and so did the suffix that
+   * used to hang off "Money you pay in", so the panel that exists to add
+   * something was spending its room repeating a pill.
    */
   ({ result, fmt, rng }) => {
     const mid = result.yearly.find(
@@ -263,8 +259,8 @@ const NARRATIVE_ANGLES: NarrativeAngle[] = [
     );
     if (!mid || mid.index <= 0) return null;
     return beat("Halfway", rng, [
-      `Year ${mid.index}: ${fmt(mid.balance)} by then. The second half of the run adds more than the first half does.`,
-      `By year ${mid.index} the pot would be ${fmt(mid.balance)}. The back half does the heavier lifting.`,
+      `${fmt(mid.balance)} by year ${mid.index}. The second half adds more than the first.`,
+      `${fmt(mid.balance)} by year ${mid.index}. The back half does more of the work.`,
     ]);
   },
   ({ result, rng }) => {
@@ -275,8 +271,8 @@ const NARRATIVE_ANGLES: NarrativeAngle[] = [
     if (!(doublings >= 0.4)) return null;
     const doubleText = yearsAndMonths(result.doubleYears, result.doubleMonths);
     return beat("Doubling", rng, [
-      `At this rate money doubles about every ${doubleText}. That is roughly ${doublings.toFixed(1)} doublings over the whole stretch.`,
-      `About ${doubleText} for each double. This many years fits about ${doublings.toFixed(1)} of them.`,
+      `Money doubles about every ${doubleText} here, ${doublings.toFixed(1)} times over the stretch.`,
+      `About ${doubleText} per double, so about ${doublings.toFixed(1)} doublings in all.`,
     ]);
   },
   ({ result, fmt, rng }) => {
@@ -286,15 +282,15 @@ const NARRATIVE_ANGLES: NarrativeAngle[] = [
     const growthMult = last.interest / first.interest;
     if (!(growthMult >= 1.4)) return null;
     return beat("The curve", rng, [
-      `Year 1 would add ${fmt(first.interest)} of growth. The last year would add ${fmt(last.interest)}, ${growthMult.toFixed(1)} times as much, with nothing else changed.`,
-      `Growth per year would go from ${fmt(first.interest)} in year 1 to ${fmt(last.interest)} in year ${last.index}, ${growthMult.toFixed(1)} times over. That is the curve, not you, working harder.`,
+      `Year 1 would add ${fmt(first.interest)}. The last year would add ${fmt(last.interest)}, ${growthMult.toFixed(1)} times as much.`,
+      `Growth per year would go from ${fmt(first.interest)} to ${fmt(last.interest)}, ${growthMult.toFixed(1)} times over.`,
     ]);
   },
   ({ result, rng }) => {
     if (!(result.effectiveAnnualRate > result.nominalAnnualRate + 0.001)) return null;
     return beat("The rate", rng, [
-      `Adding the growth every month rather than once a year turns a stated ${(result.nominalAnnualRate * 100).toFixed(1)}% into ${(result.effectiveAnnualRate * 100).toFixed(1)}% over a full year.`,
-      `The stated rate reads ${(result.nominalAnnualRate * 100).toFixed(1)}%. Counting it month by month makes it ${(result.effectiveAnnualRate * 100).toFixed(1)}% over a year.`,
+      `Added monthly, a stated ${(result.nominalAnnualRate * 100).toFixed(1)}% works out to ${(result.effectiveAnnualRate * 100).toFixed(1)}% a year.`,
+      `Counted month by month, ${(result.nominalAnnualRate * 100).toFixed(1)}% becomes ${(result.effectiveAnnualRate * 100).toFixed(1)}% over a year.`,
     ]);
   },
 ];
@@ -336,9 +332,9 @@ export function buildNarrative(
    */
   const fallbackPath = (): NarrativeBeat =>
     beat("The path", rng, [
-      `${from} becomes ${fmt(result.futureValue)} over ${formatHorizon(result.durationYears)}, if this rate holds the whole way. Slow at first, then not.`,
-      `${from} would become ${fmt(result.futureValue)} over ${formatHorizon(result.durationYears)}. Slow at first, then not slow at all.`,
-      `Over ${formatHorizon(result.durationYears)}, ${from} would grow into ${fmt(result.futureValue)}. Slow at first, then it is not.`,
+      `${from} becomes ${fmt(result.futureValue)} over ${formatHorizon(result.durationYears)} if this rate holds. Slow at first, then not.`,
+      `${from} would become ${fmt(result.futureValue)} over ${formatHorizon(result.durationYears)}. Slow at first, then fast.`,
+      `Over ${formatHorizon(result.durationYears)}, ${from} would grow into ${fmt(result.futureValue)}.`,
     ]);
 
   const beats: NarrativeBeat[] = [];
@@ -354,10 +350,12 @@ export function buildNarrative(
 }
 
 /*
- * Three, not five. Five beats of two sentences each was the longest block
- * of prose in the room, under a chart that already draws most of it.
+ * Two, not five. Five beats of two sentences each was the longest block
+ * of prose in the room, under a chart that already draws most of it, and
+ * three still left the room's last panel reading as a paragraph. Two is
+ * enough to say something the figures above do not.
  */
-const NARRATIVE_BEATS = 3;
+const NARRATIVE_BEATS = 2;
 
 /** The fallback for a caller with no currency of its own. */
 function usdText(n: number): string {
@@ -400,19 +398,19 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
   ({ row, fmt, rng }) => {
     if (!(row.contributions > 0 && row.interest > row.contributions)) return null;
     return pick(rng, [
-      `Growth this year (${fmt(row.interest)}) would beat what you pay in (${fmt(row.contributions)}). The money starts outworking you here.`,
-      `${fmt(row.interest)} of growth against ${fmt(row.contributions)} paid in. Growth would put in more hours than you did.`,
-      `You would pay in ${fmt(row.contributions)}, and the arithmetic would add ${fmt(row.interest)} on top of it. That is the turn.`,
-      `${fmt(row.interest)} of growth this year, more than the ${fmt(row.contributions)} you would actually pay in.`,
+      `Growth this year (${fmt(row.interest)}) would beat what you pay in (${fmt(row.contributions)}).`,
+      `${fmt(row.interest)} of growth against ${fmt(row.contributions)} paid in. Growth would do more than you.`,
+      `You would pay in ${fmt(row.contributions)}, and growth would add ${fmt(row.interest)}.`,
+      `${fmt(row.interest)} of growth this year, more than the ${fmt(row.contributions)} you would pay in.`,
     ]);
   },
   // Still led by deposits, before the turn.
   ({ row, fmt, rng }) => {
     if (!(row.contributions > 0 && row.interest <= row.contributions)) return null;
     return pick(rng, [
-      `Your deposits still lead this year: ${fmt(row.contributions)} from you, ${fmt(row.interest)} from growth. The turn comes later.`,
-      `${fmt(row.contributions)} of your own money against ${fmt(row.interest)} of growth. On this plan those two swap places later.`,
-      `Growth (${fmt(row.interest)}) has not caught your deposits (${fmt(row.contributions)}) yet. On this plan it does later.`,
+      `Your deposits still lead: ${fmt(row.contributions)} from you, ${fmt(row.interest)} from growth.`,
+      `${fmt(row.contributions)} of your own money against ${fmt(row.interest)} of growth. They swap places later.`,
+      `Growth (${fmt(row.interest)}) has not caught your deposits (${fmt(row.contributions)}) yet.`,
     ]);
   },
   // No deposits at all in this year.
@@ -420,8 +418,8 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
     if (row.contributions !== 0 || row.index <= 0) return null;
     return pick(rng, [
       `Nothing added this year, and the pot would still grow by ${fmt(row.interest)}.`,
-      `No deposits, ${fmt(row.interest)} of growth anyway. This is the one thing compounding does.`,
-      `You would not add a thing this year. The arithmetic would add ${fmt(row.interest)} for you.`,
+      `No deposits, and ${fmt(row.interest)} of growth anyway.`,
+      `You would add nothing this year. Growth would add ${fmt(row.interest)}.`,
     ]);
   },
   // Year on year acceleration.
@@ -429,9 +427,9 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
     if (!prevRow || prevRow.interest <= 0 || row.interest <= prevRow.interest) return null;
     const delta = row.interest - prevRow.interest;
     return pick(rng, [
-      `Growth would go from ${fmt(prevRow.interest)} last year to ${fmt(row.interest)} this year. The snowball picks up speed.`,
-      `${fmt(delta)} more growth than the year before, with nothing else changed. That is the curve bending.`,
-      `Year on year, growth would be up ${fmt(delta)}. The balance starts doing the work for you.`,
+      `Growth would rise from ${fmt(prevRow.interest)} last year to ${fmt(row.interest)}.`,
+      `${fmt(delta)} more growth than the year before, with nothing else changed.`,
+      `Year on year, growth would be up ${fmt(delta)}.`,
     ]);
   },
   // How many times the starting amount.
@@ -440,9 +438,9 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
     const mult = row.balance / result.principal;
     if (!(mult > 1.05)) return null;
     return pick(rng, [
-      `Started at ${fmt(result.principal)}, ${fmt(row.balance)} by then: ${mult.toFixed(1)} times the starting amount.`,
-      `${mult.toFixed(1)} times what you started with, and still climbing on this plan.`,
-      `The ${fmt(result.principal)} you started with would be ${fmt(row.balance)}, ${mult.toFixed(1)} times over.`,
+      `From ${fmt(result.principal)} to ${fmt(row.balance)}: ${mult.toFixed(1)} times the start.`,
+      `${mult.toFixed(1)} times what you started with, and still climbing.`,
+      `The ${fmt(result.principal)} you started with would be ${fmt(row.balance)}.`,
     ]);
   },
   // Share of the pot that is growth rather than money paid in.
@@ -451,9 +449,9 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
     const sharePct = Math.round((row.accruedInterest / row.balance) * 100);
     if (sharePct < 5) return null;
     return pick(rng, [
-      `${sharePct}% of the pot by then would be growth you never had to lift a finger for.`,
-      `Roughly ${sharePct}% of the pile would be growth rather than your own money.`,
-      `${sharePct}% growth, ${100 - sharePct}% money you paid in, and only the growth side keeps climbing.`,
+      `${sharePct}% of the pot would be growth by then.`,
+      `About ${sharePct}% of it would be growth, not your own money.`,
+      `${sharePct}% growth, ${100 - sharePct}% money you paid in.`,
     ]);
   },
   // Round number crossed in this particular year.
@@ -464,9 +462,9 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
       .pop();
     if (crossed == null) return null;
     return pick(rng, [
-      `This is the year the pot would cross ${fmt(crossed)}. A round number crossed.`,
-      `${fmt(crossed)}, crossed. Onward.`,
-      `Somewhere in year ${row.index} the pot would step past ${fmt(crossed)}.`,
+      `The pot would cross ${fmt(crossed)} this year.`,
+      `This year the pot would pass ${fmt(crossed)}.`,
+      `Somewhere in year ${row.index} the pot would pass ${fmt(crossed)}.`,
     ]);
   },
   // Doubling pace.
@@ -478,8 +476,8 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
     if (!(doublings >= 0.4)) return null;
     const doubleText = yearsAndMonths(result.doubleYears, result.doubleMonths);
     return pick(rng, [
-      `At this pace the money doubles about every ${doubleText}. Year ${row.index} is about ${doublings.toFixed(1)} doublings in.`,
-      `A double about every ${doubleText}. Year ${row.index} puts you ${doublings.toFixed(1)} doublings along.`,
+      `It doubles about every ${doubleText}. Year ${row.index} is ${doublings.toFixed(1)} doublings in.`,
+      `A double about every ${doubleText}, so ${doublings.toFixed(1)} by year ${row.index}.`,
     ]);
   },
   // Growth so far against everything paid in so far.
@@ -489,8 +487,8 @@ const YEAR_STORY_ANGLES: YearStoryAngle[] = [
     const roiSoFar = row.accruedInterest / paidIn;
     if (!(roiSoFar > 0.05)) return null;
     return pick(rng, [
-      `By year ${row.index}, growth would have added ${(roiSoFar * 100).toFixed(0)}% on top of everything you had paid in.`,
-      `Everything paid in would have earned back ${(roiSoFar * 100).toFixed(0)}% by then, and it keeps growing after that.`,
+      `By year ${row.index}, growth would add ${(roiSoFar * 100).toFixed(0)}% on top of everything paid in.`,
+      `Everything paid in would have grown ${(roiSoFar * 100).toFixed(0)}% by then.`,
     ]);
   },
 ];
@@ -523,9 +521,9 @@ export function buildYearStories(
       out.set(
         year,
         pick(rng, [
-          "The starting line. Nothing has grown yet.",
+          "The start. Nothing has grown yet.",
           "Day one. Every doubling starts here.",
-          "The before picture. Come back next year.",
+          "The before picture.",
         ])
       );
       continue;
@@ -535,8 +533,8 @@ export function buildYearStories(
       out.set(
         year,
         pick(rng, [
-          `The turn: year ${year} is the first year growth (${fmt(row.interest)}) would add more than the ${fmt(row.contributions)} you pay in. From here the pot mostly carries itself.`,
-          `The tipping point. Year ${year}, ${fmt(row.interest)} of growth against ${fmt(row.contributions)} paid in, for the first time.`,
+          `The turn: the first year growth (${fmt(row.interest)}) would beat the ${fmt(row.contributions)} you pay in.`,
+          `The tipping point: ${fmt(row.interest)} of growth against ${fmt(row.contributions)} paid in.`,
         ])
       );
       continue;
@@ -610,21 +608,23 @@ export function buildMilestoneTakeaway(
 
   if (!next) {
     return pick(rng, [
-      `All ${milestones.length} rungs on this ladder are already crossed. Time for a bigger ladder.`,
-      `Every goal on this list is crossed, all ${milestones.length} of them. Set a bigger one.`,
+      `All ${milestones.length} round numbers here are crossed.`,
+      `Every round number here is crossed, all ${milestones.length}.`,
     ]);
   }
+  /*
+   * The date itself is on the first row of the ladder directly below, so
+   * the sentence carries the wait and not the date a second time.
+   */
   const dateText =
     next.yearsUntil != null
-      ? next.targetDate
-        ? `around ${formatMilestoneDate(next.targetDate)}, about ${next.yearsUntil.toFixed(1)} years away`
-        : `in about ${next.yearsUntil.toFixed(1)} years`
-      : "further away than fifty years at this pace";
+      ? `in about ${next.yearsUntil.toFixed(1)} years`
+      : "more than fifty years out at this pace";
 
   return pick(rng, [
-    `${hit} of ${milestones.length} crossed. Next is ${fmt(next.goal)}, ${dateText}.`,
-    `${hit} of ${milestones.length} crossed. ${fmt(next.goal)} is next, ${dateText}.`,
-    `${fmt(next.goal)} is the next line to cross, ${dateText}. ${hit} behind you, ${milestones.length - hit} to go.`,
+    `${hit} of ${milestones.length} crossed. Next: ${fmt(next.goal)}, ${dateText}.`,
+    `Next is ${fmt(next.goal)}, ${dateText}.`,
+    `${fmt(next.goal)} is next, ${dateText}.`,
   ]);
 }
 
@@ -632,6 +632,14 @@ export function formatMilestoneDate(d: Date): string {
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** A projected milestone: the month it lands in, not a day. */
+export function formatMilestoneMonth(d: Date): string {
+  return d.toLocaleDateString("en-US", {
+    month: "short",
     year: "numeric",
   });
 }

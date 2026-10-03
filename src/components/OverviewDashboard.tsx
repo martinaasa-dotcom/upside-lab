@@ -1,5 +1,7 @@
 "use client";
 
+import { Sweep } from "@/components/ui/Sweep";
+import { dayMeter, type DayMeter } from "@/lib/day-meter";
 import { CountUp } from "@/components/ui/CountUp";
 import { LiveFigure } from "@/components/ui/LiveFigure";
 import { TermTip } from "@/components/ui/TermTip";
@@ -278,7 +280,7 @@ function EmptyBook({
     ? homeworkCash != null && homeworkCash > 0
       ? `This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here. You have ${currency(homeworkCash, 0)} sitting ready.`
       : "This is paper class. Everyone started with the same cash. Buy companies with that paper money. Do not paste a real portfolio in here."
-    : "Add what you own and Upside Lab tells you, in plain words, what it did each day and whether anything actually changed at those companies. Nobody else sees this unless you invite them.";
+    : "Add what you own. Each day Upside Lab says, in plain words, what moved and whether it was news. Nobody sees it unless you invite them.";
 
   return (
     <Panel className="overview-fade">
@@ -657,10 +659,13 @@ function MoverTile({
   ticker,
   mode,
   onOpen,
+  index = 0,
 }: {
   ticker: TickerScore;
   mode: "win" | "loss" | "today-win" | "today-loss";
   onOpen: () => void;
+  /** Its place in the grid, so the tiles arrive one after another. */
+  index?: number;
 }) {
   const lifetime = mode === "win" || mode === "loss";
   const isUp = mode === "win" || mode === "today-win";
@@ -673,8 +678,11 @@ function MoverTile({
       type="button"
       onClick={onOpen}
       title={sheets || undefined}
+      /* Arrives in its turn, and again whenever the range is switched,
+         because switching gives every tile a new key. */
+      style={{ ["--i" as string]: index * 3 }}
       className={cn(
-        "veil-hover card-sheen glass group relative flex h-full w-full min-w-0 flex-col justify-center gap-1.5 overflow-hidden rounded-lg p-3 text-left ring-1 lift sm:p-6",
+        "wave-in veil-hover card-sheen glass group relative flex h-full w-full min-w-0 flex-col justify-center gap-1.5 overflow-hidden rounded-lg p-3 text-left ring-1 lift sm:p-6",
         isUp ? "ring-gain/20 hover:ring-gain/40" : "ring-loss/20 hover:ring-loss/40"
       )}
     >
@@ -729,6 +737,58 @@ function MoverTile({
         <span className={cn(tone(dollars))}>{tileMoney(dollars)}</span>
       </span>
     </button>
+  );
+}
+
+/**
+ * The sentence above it, drawn: no move in the middle, an ordinary day as
+ * the band around it, and today as the dot, which sets off from no move
+ * and runs to the day's figure. See `day-meter.ts`. Decorative, because
+ * the sentence says all of it in words.
+ */
+function DayMeterBar({ meter, up }: { meter: DayMeter | null; up: boolean }) {
+  if (!meter) return null;
+  const fillFrom = Math.min(meter.at, 0.5);
+  const fillSpan = barFillPct(Math.abs(meter.at - 0.5) * 100, 0, 50);
+  return (
+    <div className="mt-4 max-w-md" aria-hidden>
+      <div className="relative h-3">
+        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-foreground/15" />
+        <span
+          className="bar-reveal absolute inset-y-0 rounded-full bg-foreground/[0.08]"
+          style={{
+            left: `${meter.bandFrom * 100}%`,
+            width: `${barFillPct((meter.bandTo - meter.bandFrom) * 100, 0)}%`,
+          }}
+        />
+        <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-foreground/35" />
+        <span
+          className={cn(
+            "grow-out absolute top-1/2 h-1 -translate-y-1/2 rounded-full opacity-60",
+            up ? "bg-gain" : "bg-loss"
+          )}
+          style={{
+            left: `${fillFrom * 100}%`,
+            width: `${fillSpan}%`,
+            ["--from" as string]: up ? "left" : "right",
+          }}
+        />
+        <Sweep at={meter.at} from={0.5}>
+          <span
+            className={cn(
+              "absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-background",
+              up ? "bg-gain" : "bg-loss"
+            )}
+            style={{ left: `${meter.at * 100}%` }}
+          />
+        </Sweep>
+      </div>
+      <div className="mt-1.5 grid grid-cols-3 font-mono text-xs text-muted-foreground">
+        <span>Down</span>
+        <span className="text-center">An ordinary day</span>
+        <span className="text-right">Up</span>
+      </div>
+    </div>
   );
 }
 
@@ -1455,6 +1515,12 @@ export const OverviewDashboard = memo(function OverviewDashboard({
               {ordinaryDayLine}
             </p>
           ) : null}
+          {ordinaryDayLine && !pricesStuck ? (
+            <DayMeterBar
+              meter={dayMeter(totals.todayPct, typical?.typicalPct ?? null)}
+              up={(totals.todayDollar ?? 0) >= 0}
+            />
+          ) : null}
           {/*
             * The three standing figures, in one strip at the foot of the
             * card rather than as tiles of their own.
@@ -1698,11 +1764,12 @@ export const OverviewDashboard = memo(function OverviewDashboard({
            * between them; six still divides evenly across three.
            */
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-            {movers.map(({ t, mode }) => (
+            {movers.map(({ t, mode }, i) => (
               <MoverTile
                 key={`${mode}-${t.ticker}`}
                 ticker={t}
                 mode={mode}
+                index={i}
                 /*
                  * Pulse, the same room the briefing's own chips open.
                  * The same chip on the same screen used to land in two

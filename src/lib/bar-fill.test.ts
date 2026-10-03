@@ -63,39 +63,43 @@ import { barFillPct } from "@/lib/format";
  */
 const ALLOWED = new Map<string, string>([
   [
-    "src/components/playbook/TemperatureLadder.tsx:108",
+    "src/components/playbook/TemperatureLadder.tsx:109",
     "bandWidths() is the gaps between fixed cut points on the ladder's own 0-100 axis (playbook.ts), so the widths sum to exactly 100 by construction and no reader's data enters the arithmetic.",
   ],
   [
-    "src/components/MarketSentimentViz.tsx:455",
+    "src/components/MarketSentimentViz.tsx:477",
     "layout.streak.x0/x1 are day-index positions on the spark's own 0-100 axis, from sentimentSparkLayout, never a ratio of an unrelated quantity.",
   ],
   [
-    "src/components/MarketSentimentViz.tsx:464",
+    "src/components/MarketSentimentViz.tsx:486",
     "Same axis as the streak band above, for the ghost projection.",
   ],
   [
-    "src/components/MarketSentimentViz.tsx:507",
+    "src/components/MarketSentimentViz.tsx:529",
     "stretch.fillPct comes from stretchFillPct(), which clamps to [FILL_FLOOR, FILL_CEILING] at the source.",
   ],
   [
-    "src/components/MarketSentimentViz.tsx:538",
+    "src/components/MarketSentimentViz.tsx:561",
     "fill.fromPct and fill.toPct are each clamped to [0, 100] individually in market-sentiment-viz.ts before the width is their difference.",
   ],
   [
-    "src/components/SeasonalityPage.tsx:282",
+    "src/components/SeasonalityPage.tsx:285",
     "barW = (Math.abs(returnPct) / maxAbs) * 50, and maxAbs is Math.max(...) over the exact same returnPct values being drawn, so no bar can outrun it.",
   ],
   [
-    "src/components/SeasonalityPage.tsx:283",
+    "src/components/SeasonalityPage.tsx:291",
     "Same barW as the row above, mirrored to the other side of the zero line.",
   ],
   [
-    "src/components/company/ValueGlance.tsx:254",
+    "src/components/company/ValueGlance.tsx:291",
+    "reachFrom and reachTo are each one of low, high and spot, all of which are inside the min/max the scale is built from, so the faint stretch stays inside the drawn scale by construction.",
+  ],
+  [
+    "src/components/company/ValueGlance.tsx:299",
     "at(low) and at(high) are computed from a from/span that is built from Math.min/Math.max over {low, high, spot, blend} plus padding, so both ends fall inside the drawn scale by construction.",
   ],
   [
-    "src/components/company/ValueGlance.tsx:443",
+    "src/components/company/ValueGlance.tsx:513",
     "width is Math.min(Math.abs(gap) / 0.6, 1) * 50, already capped at 50 before Math.max(width, 1.5) only raises a floor.",
   ],
 ]);

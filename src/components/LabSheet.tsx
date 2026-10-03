@@ -1,5 +1,7 @@
 "use client";
 
+import { SlideThumb } from "@/components/ui/SlideThumb";
+import { hapticTick } from "@/lib/haptic";
 import { CountUp } from "@/components/ui/CountUp";
 import { StatStrip } from "@/components/ui/StatStrip";
 import { forecastThemeForTicker } from "@/lib/forecast-growth";
@@ -192,7 +194,7 @@ function LabTabRow({
         there is no gradient anywhere in the material.
       */
       className={cn(
-        "scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto",
+        "seg-track scrollbar-none flex min-h-[2rem] gap-1 overflow-x-auto",
         overflow.left && overflow.right
           ? "[mask-image:linear-gradient(to_right,transparent,black_1.5rem,black_calc(100%-1.5rem),transparent)]"
           : overflow.left
@@ -203,6 +205,8 @@ function LabTabRow({
         className
       )}
     >
+      {/* The same travelling thumb every other choice in the app has. */}
+      <SlideThumb on={active} />
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -212,9 +216,13 @@ function LabTabRow({
           type="button"
           role="tab"
           aria-selected={active === t.id}
-          onClick={() => onSelect(t.id)}
+          data-on={active === t.id ? "" : undefined}
+          onClick={() => {
+            if (t.id !== active) hapticTick();
+            onSelect(t.id);
+          }}
           className={cn(
-            "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition touch-target",
+            "seg-cell shrink-0 rounded-md px-3 py-1.5 text-sm font-medium touch-target",
             active === t.id
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:text-primary"
@@ -524,7 +532,7 @@ export const LabSheet = memo(function LabSheet({
   const tabIntro: Record<LabTab, string> = {
     alloc:
       holdingCount === 0
-        ? "Where your money actually sits, grouped by company and by kind of business."
+        ? "Where your money sits, by company and kind of business."
         : holdingCount > 3
           ? /*
              * The noticing figure is the count of business kinds, not a
@@ -543,23 +551,23 @@ export const LabSheet = memo(function LabSheet({
              * never totals them.
              */
             `Where your money sits: ${holdingCount} holdings across ${sectorCount} ${sectorCount === 1 ? "kind" : "kinds"} of business.`
-          : `Where your money sits. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of this rides on ${topName ?? "them"}.`,
+          : `Where your money sits. You hold ${holdingCount} ${holdingCount === 1 ? "company" : "companies"}, so almost all of it rides on ${topName ?? "them"}.`,
     risk:
       topName && holdingCount > 0
-        ? `What a rough day would do, and which companies move together. ${topName} is ${topWeight}% of your stocks.`
-        : "What a rough day would do, and which companies move together.",
+        ? `What a bad day costs, and what moves together. ${topName} is ${topWeight}% of your stocks.`
+        : "What a bad day costs, and what moves together.",
     trends:
       holdingCount === 0
-        ? "Whether each company is still moving the way it was."
-        : `Whether each company is still moving the way it was. ${risingCount} of ${holdingCount} ${holdingCount === 1 ? "is" : "are"} up on three months ago.`,
+        ? "Which companies are changing direction."
+        : `Which companies are changing direction. ${risingCount} of ${holdingCount} ${holdingCount === 1 ? "is" : "are"} up on three months ago.`,
     seasonality:
-      "Which months the market has usually been kind in, and which it has not.",
+      "Which months have been good or bad for the market.",
     playbook:
-      "Reading the market's mood, what a fall costs, and the ideas worth keeping.",
+      "The market's mood, what a fall costs, and ideas worth keeping.",
     lookup:
       holdingCount === 0
-        ? "Any company in plain words: what it does, its numbers, what it might be worth."
-        : "Any company in plain words, whether you own it or not.",
+        ? "Any company in plain words: what it does and what it might be worth."
+        : "Any company in plain words, owned or not.",
   };
 
   return (
@@ -695,7 +703,7 @@ export const LabSheet = memo(function LabSheet({
           {concentration.positionCount === 0 ? (
             <EmptyState
               title="Nothing to look at yet"
-              detail={`Add a holding to ${scopeLabel} and this fills in with how spread out you are.`}
+              detail={`Add a holding to ${scopeLabel} to see how spread out you are.`}
             />
           ) : (
             <>
@@ -718,11 +726,12 @@ export const LabSheet = memo(function LabSheet({
                     where the component hugs at `mt-2`. Two answers to one
                     question, decided by whether a panel happened to reach
                     for the component.
+
+                    No subtitle: the tab's own intro directly above already
+                    says how many kinds of business this is, and the legend
+                    names each one.
                   */}
-                  <PanelHeader
-                    title="What you're actually betting on"
-                    subtitle="Your holdings grouped by kind of business, which usually tells you more than the list of tickers does."
-                  />
+                  <PanelHeader title="What you're actually betting on" />
                   <AllocationBar
                     size="lg"
                     slices={mix.map((m) => ({
@@ -807,8 +816,8 @@ export const LabSheet = memo(function LabSheet({
                     aria-label="How spread out, out of 100"
                   />
                   <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
-                    <span>0 is everything in one holding</span>
-                    <span className="text-right">100 is as spread out as an index fund</span>
+                    <span>0, one holding</span>
+                    <span className="text-right">100, an index fund</span>
                   </div>
                 </div>
 
@@ -836,7 +845,7 @@ export const LabSheet = memo(function LabSheet({
                       sub:
                         concentration.positionCount === 1
                           ? "Your only holding"
-                          : `holdings, of the ${concentration.positionCount} you own`,
+                          : `holdings, of ${concentration.positionCount}`,
                     },
                     {
                       label: <TermTip term="share-of-portfolio">Largest holding</TermTip>,
@@ -902,7 +911,7 @@ export const LabSheet = memo(function LabSheet({
                 */
                 subtitle={
                   Math.abs(scopedCash) >= 1
-                    ? `Shares of the ${currency(byTicker.reduce((a, s) => a + s.value, 0), 0)} invested, not counting cash.`
+                    ? `Of the ${currency(byTicker.reduce((a, s) => a + s.value, 0), 0)} invested, not counting cash.`
                     : undefined
                 }
               />
@@ -943,12 +952,11 @@ export const LabSheet = memo(function LabSheet({
         <Panel tone="plain" className="flex flex-col gap-4">
           <PanelHeader
             title="Do these move together?"
-            subtitle="Over the last 90 days. Near +1 two companies rise and fall as one, so owning both does not spread your risk."
+            subtitle="Last 90 days. Near +1, two companies move as one."
           />
           {corrHeat.tickers.length < 2 ? (
             <p className="text-sm text-muted-foreground">
-              You need at least two holdings with enough price history to
-              compare.
+              Needs two holdings with enough price history.
             </p>
           ) : (
             /* Header row is one shared 2rem band: column labels sit on the
@@ -987,13 +995,16 @@ export const LabSheet = memo(function LabSheet({
                                 : `${row} ↔ ${corrHeat.tickers[j]}: ${c.toFixed(2)}`
                             }
                             className={cn(
-                              "flex h-10 min-w-10 w-full items-center justify-center rounded-md tabular-nums text-sm font-medium text-foreground",
+                              "wave-in flex h-10 min-w-10 w-full items-center justify-center rounded-md tabular-nums text-sm font-medium text-foreground",
                               c == null && "bg-muted"
                             )}
+                            /* A diagonal wave: the cells arrive corner to
+                               corner, one step per row and column. */
                             style={
                               c == null
-                                ? undefined
+                                ? { ["--i" as string]: Math.min(i + j, 20) * 2 }
                                 : {
+                                    ["--i" as string]: Math.min(i + j, 20) * 2,
                                     background: `color-mix(in oklch, var(--${c >= 0 ? "zone-warm" : "zone-cool"}) ${Math.round((0.08 + Math.abs(c) * 0.5) * 100)}%, transparent)`,
                                   }
                             }
@@ -1019,7 +1030,7 @@ export const LabSheet = memo(function LabSheet({
                     everywhere else in this app.
                   */}
                   <ul className="flex min-h-0 flex-1 flex-col gap-3">
-                    {corrPairs.map((c) => {
+                    {corrPairs.map((c, k) => {
                       const v = Number.isFinite(c.corr) ? Math.max(-1, Math.min(1, c.corr)) : 0;
                       return (
                         <li key={`${c.a}-${c.b}`} className="flex flex-col gap-1.5 text-sm">
@@ -1035,12 +1046,14 @@ export const LabSheet = memo(function LabSheet({
                             <span className="relative h-2 min-w-0 flex-1 rounded-full bg-foreground/[0.06]" aria-hidden>
                               <span className="absolute inset-y-[-3px] left-1/2 w-px bg-foreground/25" />
                               <span
-                                className="absolute inset-y-0 rounded-full"
+                                className="grow-out absolute inset-y-0 rounded-full"
                                 style={{
                                   left: v >= 0 ? "50%" : `${50 - barFillPct(Math.abs(v) * 50, 0, 50)}%`,
                                   width: `${barFillPct(Math.abs(v) * 50, 0, 50)}%`,
                                   background: `var(--${v >= 0 ? "zone-warm" : "zone-cool"})`,
                                   opacity: 0.35 + Math.abs(v) * 0.65,
+                                  ["--from" as string]: v >= 0 ? "left" : "right",
+                                  ["--i" as string]: Math.min(k, 10) * 2,
                                 }}
                               />
                             </span>

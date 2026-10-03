@@ -1,6 +1,6 @@
 "use client";
 
-import { UpsideLogo } from "@/components/UpsideLogo";
+import { MessageLine, MessageScreen } from "@/components/MessageScreen";
 import { Button } from "@/components/ui/button";
 import { reportClientError } from "@/lib/telemetry-client";
 import { RotateCcw } from "lucide-react";
@@ -23,35 +23,26 @@ export default function Error({
   }, [error]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-4 text-center">
-      <UpsideLogo variant="icon" />
-      <div className="flex max-w-sm flex-col gap-2">
-        <h1 className="text-foreground">
-          This screen did not load
-        </h1>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Nothing you have saved has changed. Press Try again, and reload the
-          page if it keeps happening.
-        </p>
-        {error.digest && (
-          <p className="text-sm text-muted-foreground">
-            If you write in about it, this code helps us find it: {error.digest}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <Button type="button" onClick={() => retry()}>
-          <RotateCcw data-icon="inline-start" />
-          Try again
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => window.location.reload()}
-        >
-          Reload page
-        </Button>
-      </div>
-    </div>
+    <MessageScreen
+      title="This screen did not load"
+      actions={
+        <>
+          <Button type="button" onClick={() => retry()}>
+            <RotateCcw data-icon="inline-start" />
+            Try again
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => window.location.reload()}
+          >
+            Reload page
+          </Button>
+        </>
+      }
+      foot={error.digest ? <>If you write in, quote this code: {error.digest}</> : null}
+    >
+      <MessageLine>Nothing you saved has changed. Try again, or reload the page.</MessageLine>
+    </MessageScreen>
   );
 }

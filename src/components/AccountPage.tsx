@@ -147,13 +147,14 @@ function VisitCard() {
         pill says which day it is and which end is today.
       */}
       <div className="flex gap-2">
-        {week.map((day) => (
+        {week.map((day, i) => (
           <div key={day.key} className="flex flex-1 flex-col items-center gap-1.5">
             <span
               className={cn(
-                "h-2 w-full rounded-full",
+                "grow-out h-2 w-full rounded-full",
                 day.visited ? "bg-primary" : "bg-accent"
               )}
+              style={{ ["--i" as string]: i * 2 }}
             />
             <span
               className={cn(
@@ -610,13 +611,19 @@ export function AccountPage() {
               <h1 className="truncate text-2xl font-semibold">
                 {displayName.trim() || "Your account"}
               </h1>
+              {/*
+                The address and how it signed in are two lines, so a phone
+                truncates neither: as one truncated line it read
+                "anna.berg@example.com, signed in with Go...".
+              */}
               <p className="truncate text-sm text-muted-foreground">
-                {user?.email
-                  ? signedInWithGoogle
-                    ? `${user.email}, signed in with Google`
-                    : user.email
-                  : "Demo. Nothing you change here is saved."}
+                {user?.email ?? "Demo. Nothing you change here is saved."}
               </p>
+              {user?.email && signedInWithGoogle ? (
+                <p className="text-sm text-muted-foreground">
+                  Signed in with Google
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -654,7 +661,7 @@ export function AccountPage() {
                 <PinnedHeader
                   icon={<UserRound className="h-4 w-4" />}
                   title="Your profile"
-                  subtitle="Your name, picture and one line, as the people in your circles see them."
+                  subtitle="How people in your circles see you."
                 />
 
                 <form
@@ -736,9 +743,7 @@ export function AccountPage() {
                         placeholder="https://…"
                       />
                       <span className="text-sm text-muted-foreground">
-                        {AVATAR_HOST_MESSAGE} Everyone who can see your
-                        profile loads this picture, so it only comes from
-                        those two places.
+                        {AVATAR_HOST_MESSAGE}
                       </span>
                     </label>
                   ) : null}
@@ -830,7 +835,7 @@ export function AccountPage() {
                 <PinnedHeader
                   icon={<Gauge className="h-4 w-4" />}
                   title="How much to show"
-                  subtitle="Every room is open whichever you pick. This decides what starts folded and how much Margus explains."
+                  subtitle="Every room stays open. This sets what starts folded and how much Margus explains."
                 />
                 {/*
                   Three full-width slabs carrying ten words each spent 500px
@@ -857,13 +862,13 @@ export function AccountPage() {
                         onClick={() => void handleTierChange(t.id)}
                         className={cn(
                           CARD,
-                          "flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover",
+                          "flex w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover active:scale-[0.98] motion-reduce:active:scale-100",
                           tier === t.id && "text-primary outline-2 -outline-offset-2 outline-primary"
                         )}
                       >
                         {t.label}
                         {tier === t.id && (
-                          <Check className="h-4 w-4 shrink-0 text-primary" />
+                          <Check className="answer-pop h-4 w-4 shrink-0 text-primary" />
                         )}
                       </button>
                     ))}
@@ -905,13 +910,13 @@ export function AccountPage() {
                           onClick={() => void handleKnowsOptionsChange(yes)}
                           className={cn(
                             CARD,
-                            "flex items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover",
+                            "flex items-center justify-between gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-hover active:scale-[0.98] motion-reduce:active:scale-100",
                             knowsOptions === yes && "text-primary outline-2 -outline-offset-2 outline-primary"
                           )}
                         >
                           {yes ? "Yes" : "No"}
                           {knowsOptions === yes && (
-                            <Check className="h-4 w-4 shrink-0 text-primary" />
+                            <Check className="answer-pop h-4 w-4 shrink-0 text-primary" />
                           )}
                         </button>
                       ))}
@@ -934,7 +939,7 @@ export function AccountPage() {
                     <PinnedHeader
                       icon={<Mail className="h-4 w-4" />}
                       title="The Sunday email"
-                      subtitle={`${SUNDAY_EMAIL_LINE} The switch turns it off, and the only other mail is one reminder if you sign up and add nothing.`}
+                      subtitle={`${SUNDAY_EMAIL_LINE} Plus one reminder if you sign up and add nothing.`}
                       controlId={sundaySwitchId}
                       actions={
                         <Switch
@@ -967,14 +972,14 @@ export function AccountPage() {
                     <PinnedHeader
                       icon={<Mail className="h-4 w-4" />}
                       title="The Sunday email"
-                      subtitle={`The Sunday email is switched off on this copy of ${PRODUCT_NAME}, so there is nothing to turn on here.`}
+                      subtitle={`Not available on this copy of ${PRODUCT_NAME}.`}
                     />
                   )}
                 </div>
                 {emailConfigured && noteSunday ? (
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {portfolios && holdingsTotal === 0
-                      ? "It starts once there is at least one holding in a portfolio. Add one and the next letter has something to say."
+                      ? "It starts once a portfolio has a holding."
                       : nextLetter
                         ? `Next one: ${nextLetter}.`
                         : null}
@@ -1003,7 +1008,7 @@ export function AccountPage() {
                   <PinnedHeader
                     icon={<ShieldCheck className="h-4 w-4" />}
                     title="Data and privacy"
-                    subtitle="It is your data. Export it or delete it whenever you like."
+                    subtitle="Yours to export or delete any time."
                   />
 
                   <SettingBar
@@ -1016,7 +1021,7 @@ export function AccountPage() {
                         }
                       />
                     }
-                    description="Measures page views and how long pages take to load. The cookies that keep you signed in always run."
+                    description="Page views and load times. Sign-in cookies always run."
                   >
                     <label
                       htmlFor={analyticsSwitchId}
@@ -1047,7 +1052,7 @@ export function AccountPage() {
                           Saved as {exportSaved}. Look in your downloads.
                         </p>
                       ) : (
-                        "One file: your profile, your portfolios, your holdings and your notes."
+                        "Your profile, portfolios, holdings and notes in one file."
                       )
                     }
                   >
@@ -1078,7 +1083,7 @@ export function AccountPage() {
                 <PinnedHeader
                   icon={<Compass className="h-4 w-4" />}
                   title="Help and feedback"
-                  subtitle={`The walkthrough shows where everything lives, and the one thing ${PRODUCT_NAME} will never do: tell you to buy or sell.`}
+                  subtitle={`Where everything is, and what ${PRODUCT_NAME} never does: tell you to buy or sell.`}
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -1103,8 +1108,7 @@ export function AccountPage() {
                 {monthlyDue ? (
                   <div className={cn(CARD, "flex flex-col gap-3 p-3.5")}>
                     <p className="text-sm leading-relaxed text-foreground">
-                      How has the last month been? Four questions, and you can
-                      tap through them.
+                      How was the last month? Four questions.
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" size="sm" onClick={openMonthly}>
@@ -1122,7 +1126,7 @@ export function AccountPage() {
                   </div>
                 ) : null}
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  Anything the walkthrough does not answer, mail{" "}
+                  Anything else? Mail{" "}
                   <a
                     href={`mailto:${PRODUCT_SUPPORT_EMAIL}`}
                     className="underline hover:text-foreground"
@@ -1145,7 +1149,7 @@ export function AccountPage() {
                 <PinnedHeader
                   icon={<Mail className="h-4 w-4" />}
                   title="Have an invite code?"
-                  subtitle="Paste it here and you are added to that portfolio. To invite somebody yourself, open a portfolio and press Invite next to Add holding."
+                  subtitle="Paste it to join that portfolio. To invite someone, press Invite on a portfolio."
                 />
                 <form
                   onSubmit={(e) => void joinWithCode(e)}
@@ -1192,8 +1196,8 @@ export function AccountPage() {
                 />
                 {subscriptionNeedsAttention(subscriptionStatus) ? (
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Your last payment did not go through. Update your card and
-                    nothing else changes.
+                    Your last payment did not go through. Updating your card
+                    fixes it.
                   </p>
                 ) : isSupporter ? (
                   <p className="text-sm leading-relaxed text-muted-foreground">
@@ -1248,7 +1252,7 @@ export function AccountPage() {
                     iconTone="danger"
                     title="Delete my account"
                     titleClassName="text-destructive"
-                    subtitle="Removes your profile, deletes the portfolios only you own, and takes you off any you share with someone else. This cannot be undone."
+                    subtitle="Deletes your profile and the portfolios only you own, and takes you off shared ones. This cannot be undone."
                     actions={
                       <Button
                         type="button"
@@ -1297,14 +1301,14 @@ export function AccountPage() {
         >
           <button
             type="button"
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
             aria-label="Close"
             onClick={() => !deleting && setDeleteOpen(false)}
           />
-          <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover ring-1 ring-destructive/30 modal-pad sm:max-w-md sm:rounded-xl">
-            <h3 id={deleteTitleId} className="text-base font-semibold text-loss">
+          <div className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl glass-overlay modal-in ring-1 ring-destructive/30 modal-pad sm:max-w-md sm:rounded-xl">
+            <h2 id={deleteTitleId} className="text-loss">
               Delete your account?
-            </h3>
+            </h2>
             {/*
               A LIST OF WHAT GOES, BUILT FROM WHAT IS THERE.
 
@@ -1330,15 +1334,13 @@ export function AccountPage() {
                   </div>
                 ) : (
                   <p className="text-muted-foreground">
-                    There is no portfolio here that only you own, so nothing
-                    of anybody&apos;s is deleted.
+                    You own no portfolio alone, so no portfolio is deleted.
                   </p>
                 )}
                 {deletion.handsOver.length > 0 && (
                   <p className="text-muted-foreground">
-                    Keeps {joinWords(deletion.handsOver)}, which you share.
-                    It stays with the person you share it with, and you come
-                    off it.
+                    Keeps {joinWords(deletion.handsOver)}, which you share: it
+                    stays with the others and you come off it.
                   </p>
                 )}
                 {deletion.leaves.length > 0 && (
@@ -1353,8 +1355,7 @@ export function AccountPage() {
                   </p>
                 )}
                 <p className="text-muted-foreground">
-                  Removes your sign-in, so this account cannot be used again.
-                  If it cannot be removed from here, you can also take{" "}
+                  Removes your sign-in for good. If that fails, you can take{" "}
                   {PRODUCT_NAME} off your Google account yourself.
                 </p>
                 <Button

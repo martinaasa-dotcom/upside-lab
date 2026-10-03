@@ -69,18 +69,26 @@ export function YourHolding({
 
       <Scoreboard cols={4} mobileCols={2}>
         <Score
+          className="wave-in"
+          style={{ ["--i" as string]: 0 }}
           label={isCoinSymbol(ticker) ? "Units" : "Shares"}
           value={shareCount(shares)}
         />
         <Score
+          className="wave-in"
+          style={{ ["--i" as string]: 2 }}
           label="Paid each"
           value={paid != null ? currency(paid, 2, code) : NO_VALUE}
         />
         <Score
+          className="wave-in"
+          style={{ ["--i" as string]: 4 }}
           label="Worth today"
           value={value != null ? currency(value, 0, code) : NO_VALUE}
         />
         <Score
+          className="wave-in"
+          style={{ ["--i" as string]: 6 }}
           label="Against what you paid"
           value={gain != null ? signedPercent(gain) : NO_VALUE}
           sub={

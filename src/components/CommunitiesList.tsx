@@ -336,7 +336,7 @@ export function CommunitiesList() {
               Circle
             </h1>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              People you invite, and public circles you can ask to join. You pick which portfolios they see. They see prices from today, not what you paid.
+              Invite people or join a public circle. You choose which portfolios they see, and what you paid stays yours.
             </p>
           </div>
           {/*
@@ -366,7 +366,7 @@ export function CommunitiesList() {
                     onClick={() => setStartOpen(true)}
                   >
                     <Plus data-icon="inline-start" />
-                    Start a circle or a class
+                    Start a circle
                   </Button>
                 ) : undefined
               }
@@ -386,18 +386,21 @@ export function CommunitiesList() {
                       You are not in a circle yet.
                     </p>
                     <p className="text-sm leading-relaxed text-muted-foreground">
-                      Start one below for friends or family, or request to join
-                      a public circle further down.
+                      Start one below, or ask to join a public one.
                     </p>
                   </li>
                 )}
-                {communities.map((c) => {
+                {communities.map((c, i) => {
                   // `warm` is only in the dependency list to re-read the
                   // cache after the copies land; see `load` above.
                   void warm;
                   const people = peopleLabel(c.id);
                   return (
-                  <li key={c.id}>
+                  <li
+                    key={c.id}
+                    className="wave-in"
+                    style={{ ["--i" as string]: i * 2 }}
+                  >
                     <Link
                       href={`/communities/${c.id}`}
                       onPointerEnter={() => void prefetchCommunity(c.id)}
@@ -427,36 +430,45 @@ export function CommunitiesList() {
                           (path) => router.push(path)
                         );
                       }}
-                      className="flex items-center justify-between gap-3 px-4 py-4 transition hover:bg-hover"
+                      className="flex items-center gap-3 px-4 py-4 transition hover:bg-hover"
                     >
-                      <span className="flex min-w-0 items-center gap-2">
-                        {c.kind === "classroom" ? (
-                          <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary/80" />
-                        ) : c.visibility === "public" ? (
-                          <Globe className="h-3.5 w-3.5 shrink-0 text-primary" />
-                        ) : (
-                          <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="min-w-0 truncate text-base font-semibold text-foreground">
-                          {c.name}
+                      {/*
+                        The name has a line of its own on a phone, with the
+                        details under it. In one row the count and the badge
+                        kept their width and the circle's own name was cut
+                        to "Economi..." and "Sunday coffe...".
+                      */}
+                      <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                        <span className="flex min-w-0 items-center gap-2">
+                          {c.kind === "classroom" ? (
+                            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary/80" />
+                          ) : c.visibility === "public" ? (
+                            <Globe className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          ) : (
+                            <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="min-w-0 truncate text-base font-semibold text-foreground">
+                            {c.name}
+                          </span>
                         </span>
-                        {c.kind === "classroom" ? (
-                          <span className="shrink-0 text-sm text-muted-foreground">
-                            Class
-                          </span>
-                        ) : null}
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-[1.375rem] text-sm text-muted-foreground sm:flex-1 sm:flex-nowrap sm:pl-0">
+                          {c.kind === "classroom" ? (
+                            <span className="shrink-0">Class</span>
+                          ) : null}
+                          {people ? (
+                            <span className="shrink-0 sm:ml-auto">{people}</span>
+                          ) : null}
+                          {c.role === "admin" ? (
+                            <Badge
+                              variant="secondary"
+                              className={cn(!people && "sm:ml-auto")}
+                            >
+                              Admin
+                            </Badge>
+                          ) : null}
+                        </span>
                       </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        {people ? (
-                          <span className="text-sm text-muted-foreground">
-                            {people}
-                          </span>
-                        ) : null}
-                        {c.role === "admin" ? (
-                          <Badge variant="secondary">Admin</Badge>
-                        ) : null}
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </Link>
                   </li>
                   );
@@ -468,20 +480,21 @@ export function CommunitiesList() {
           <Panel>
             <PanelHeader
               title="Public circles"
-              subtitle="Most let you straight in. Some ask their admin first, and the button says which."
+              subtitle="Most let you straight in. The button says if one asks first."
               icon={<Compass className="h-4 w-4" />}
             />
             {discover.length === 0 ? (
               <p className="card-sheen glass-well rounded-lg px-4 py-6 text-sm leading-relaxed text-muted-foreground">
-                There are no public circles right now. If you start one, set
-                it to Public so that people can ask to join it.
+                There are no public circles right now. Start one and set it to
+                Public.
               </p>
             ) : (
               <ul className="card-sheen glass-well divide-y divide-border overflow-hidden rounded-lg">
-                {discover.map((c) => (
+                {discover.map((c, i) => (
                   <li
                     key={c.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3.5"
+                    className="wave-in flex items-center justify-between gap-3 px-4 py-3.5"
+                    style={{ ["--i" as string]: i * 2 }}
                   >
                     {/*
                       The count and a pending request sit on the line under
@@ -542,8 +555,8 @@ export function CommunitiesList() {
                 title="Start a circle"
                 subtitle={
                   kind === "classroom"
-                    ? "High school or university. Students join with a link, everyone starts with the same paper cash and an empty portfolio, and the prices are real. No real money changes hands."
-                    : "A private circle for people you invite, or a public one people can ask to join."
+                    ? "Students join with a link and start with the same paper cash. Real prices, no real money."
+                    : "Private for people you invite, or public for anyone to ask."
                 }
                 actions={
                   <Segmented
@@ -580,8 +593,7 @@ export function CommunitiesList() {
                         How the class runs
                       </p>
                       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                        Pick the closest match. You can change the cash, the
-                        note, and the trading rules after you start.
+                        Pick the closest. You can change all of it later.
                       </p>
                       <div className="divide-y divide-border">
                         {CLASS_TEMPLATES.map((t) => {
@@ -590,6 +602,7 @@ export function CommunitiesList() {
                             <button
                               key={t.id}
                               type="button"
+                              aria-pressed={on}
                               onClick={() => {
                                 const next = classTemplateById(t.id);
                                 setTemplateId(next.id);
@@ -597,23 +610,40 @@ export function CommunitiesList() {
                                 setAssignment(next.assignment);
                                 setStartPeriod(next.period);
                               }}
+                              /*
+                                The chosen template used to differ from the
+                                others by nothing at all: both branches of
+                                the title's colour were the same class. It
+                                carries a radio mark now, filled when chosen.
+                              */
                               className={cn(
-                                "flex w-full flex-col gap-1 py-4 text-left transition first:pt-1 last:pb-1",
+                                "flex w-full items-start gap-3 py-4 text-left transition-colors first:pt-1 last:pb-1",
                                 on
                                   ? "text-foreground"
                                   : "text-muted-foreground hover:text-foreground"
                               )}
                             >
                               <span
+                                aria-hidden
                                 className={cn(
-                                  "text-sm font-semibold",
-                                  on ? "text-foreground" : "text-foreground"
+                                  "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border transition-colors",
+                                  on ? "border-primary" : "border-foreground/40"
                                 )}
                               >
-                                {t.title}
+                                <span
+                                  className={cn(
+                                    "size-2 rounded-full bg-primary transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none",
+                                    on ? "scale-100" : "scale-0"
+                                  )}
+                                />
                               </span>
-                              <span className="text-sm leading-relaxed text-muted-foreground">
-                                {t.blurb}
+                              <span className="flex min-w-0 flex-col gap-1">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {t.title}
+                                </span>
+                                <span className="text-sm leading-relaxed text-muted-foreground">
+                                  {t.blurb}
+                                </span>
                               </span>
                             </button>
                           );
@@ -674,12 +704,12 @@ export function CommunitiesList() {
         >
           <button
             type="button"
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            className="scrim-in absolute inset-0 bg-black/80 backdrop-blur-sm"
             aria-label="Close"
             onClick={() => setJoinPick(null)}
           />
           <div
-            className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl bg-popover p-6 ring-1 ring-foreground/20 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-xl sm:pb-6"
+            className="scroll-host relative max-h-full w-full overflow-y-auto rounded-t-xl glass-overlay modal-in modal-pad ring-1 ring-foreground/20 sm:max-w-md sm:rounded-xl"
           >
             <h3
               id="join-share-title"
@@ -688,8 +718,7 @@ export function CommunitiesList() {
               What should {joinPick.name} see?
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Every portfolio is shared to start with. Turn one off to keep it
-              private. You can change this later.
+              All are shared to start. Turn one off to keep it private.
             </p>
             <ul className="flex flex-col mt-4 gap-2">
               {joinPick.sheets.map((s) => {

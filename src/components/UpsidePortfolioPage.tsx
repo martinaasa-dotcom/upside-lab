@@ -73,6 +73,7 @@ import {
 import {
   fundQuoteCoverage,
   fundTotalReturn,
+  fundDayBaseline,
   liveFundTodayMove,
   liveFundTotalValue,
   spyReturnSince,
@@ -104,8 +105,6 @@ import {
 import {
   ArrowDownToLine,
   ChevronRight,
-  Minus,
-  Plus,
   Scissors,
   TrendingUp,
 } from "lucide-react";
@@ -133,7 +132,7 @@ const BENCHMARK_SHORT = "The S&P 500 tracker";
 /** Mid-sentence form. */
 const BENCHMARK_MID = "the S&P 500 tracker";
 const BENCHMARK_NOTE =
-  "SPY is one fund that holds the five hundred largest US companies. It is the line this fund sets out to beat, and where its waiting money sits.";
+  "SPY holds the 500 largest US companies. It is the line this fund sets out to beat, and where its waiting money sits.";
 
 const BENCHMARK_STORAGE_KEY = "portfell-upside-portfolio-benchmark";
 const FEED_CHUNK = 7;
@@ -705,6 +704,7 @@ export function FundPosition({
   price,
   spark,
   share,
+  index = 0,
 }: {
   holding: HoldingRow;
   price: number | null;
@@ -712,6 +712,8 @@ export function FundPosition({
   spark?: number[] | null;
   /** This company's share of the whole Fund, cash included. */
   share?: number | null;
+  /** Place among the open positions, so they arrive in order (motion.css). */
+  index?: number;
 }) {
   const priced = price != null && Number.isFinite(price) && price > 0;
   const pnlPct =
@@ -726,7 +728,10 @@ export function FundPosition({
   const holdFor = holding.target_timeframe?.trim();
   const tag = cashtag(holding.ticker);
   return (
-    <div className={cn(BOX, "lift flex flex-col gap-4", PANEL_PAD)}>
+    <div
+      className={cn(BOX, "wave-in lift flex flex-col gap-4", PANEL_PAD)}
+      style={{ ["--i" as string]: index * 3 }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Badge variant="secondary" className="chip-hang h-6 font-heading text-sm font-semibold">
@@ -880,7 +885,11 @@ function Timeline({ children }: { children: React.ReactNode }) {
           className="absolute bottom-4 left-[7px] top-4 w-px bg-gradient-to-b from-primary/70 via-border to-transparent"
         />
         {entries.map((child, i) => (
-          <li key={i} className="relative">
+          <li
+            key={i}
+            className="wave-in relative"
+            style={{ ["--i" as string]: i * 3 }}
+          >
             <span
               aria-hidden
               className={cn(
@@ -988,9 +997,9 @@ export function WhatThisIs({
         }
       />
       <p className="text-base leading-relaxed text-foreground/85">
-        A pretend $100,000 that sets out to beat the S&P 500. Written rules
-        trade it on each day the market is open, and every trade is written
-        down with the numbers behind it. Nothing is edited afterwards.
+        A pretend $100,000 out to beat the S&P 500. Written rules trade it
+        on each day the market is open, and every trade is logged with its
+        numbers. Nothing is edited afterwards.
       </p>
       {/*
         One ruled list, not three boxed tiles: three boxes of one sentence
@@ -1000,8 +1009,12 @@ export function WhatThisIs({
         reader meets the vocabulary before the first entry uses it.
       */}
       <ol className="flex flex-col divide-y divide-border border-y border-border sm:grid sm:grid-cols-3 sm:gap-6 sm:divide-y-0 sm:py-4">
-        {FUND_RULE_STEPS.map(({ Icon, title, line, tone }) => (
-          <li key={title} className="flex gap-3 py-3 sm:py-0">
+        {FUND_RULE_STEPS.map(({ Icon, title, line, tone }, i) => (
+          <li
+            key={title}
+            className="wave-in flex gap-3 py-3 sm:py-0"
+            style={{ ["--i" as string]: i * 3 }}
+          >
             <span
               className={cn(
                 "flex size-9 shrink-0 items-center justify-center rounded-lg",
@@ -1295,7 +1308,7 @@ export function UpsidePortfolioPage() {
       if (mode !== "background" && !cachedRef.current) {
         setError(
           isNetworkError(e)
-            ? "You appear to be offline. The Fund will load as soon as the connection is back."
+            ? "You seem to be offline. The Fund loads once you are back."
             : e instanceof Error
               ? e.message
               : "Couldn't load the Fund."
@@ -1478,13 +1491,12 @@ export function UpsidePortfolioPage() {
     liveTotal: totalValue,
     startingCapital: fund?.starting_capital,
   });
+  const dayBaseline = fundDayBaseline(reports);
   const { todayDollar, todayPct } = liveFundTodayMove({
     liveTotal: totalValue,
-    lastReportValue: latestReport?.portfolio_value,
+    lastReportValue: dayBaseline,
   });
-  const hasYesterday =
-    latestReport?.portfolio_value != null &&
-    Number.isFinite(latestReport.portfolio_value);
+  const hasYesterday = dayBaseline != null && Number.isFinite(dayBaseline);
   /*
    * How much of "Total value" is a live price and how much is what he
    * paid. See `fundQuoteCoverage`: the fallback is right and saying
@@ -2023,9 +2035,9 @@ export function UpsidePortfolioPage() {
               {coverage.unpriced.length > 0 && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {coverage.unpriced.length === 1
-                    ? `No price came back for ${cashtag(coverage.unpriced[0]!)} just now, so it is counted at what Margus paid for it rather than left out.`
-                    : `No price came back for ${coverage.unpriced.length} of these companies just now, so each is counted at what Margus paid for it rather than left out.`}{" "}
-                  Everything above leans on that until the prices return.
+                    ? `No price came back for ${cashtag(coverage.unpriced[0]!)} just now, so it counts at what Margus paid.`
+                    : `No price came back for ${coverage.unpriced.length} of these companies just now, so each counts at what Margus paid.`}{" "}
+                  The figures above lean on that until prices return.
                 </p>
               )}
 
@@ -2101,7 +2113,7 @@ export function UpsidePortfolioPage() {
                 >
                   X
                 </a>
-                , so the record is in two places rather than only this one.
+                , so the record lives in two places.
               </p>
             </Panel>
 
@@ -2109,7 +2121,7 @@ export function UpsidePortfolioPage() {
               <Panel>
                 <PanelHeader
                   title="Where the money sits"
-                  subtitle="Grouped by the kind of business, with the cash Margus has not spent."
+                  subtitle="By kind of business, plus the cash Margus has not spent."
                 />
                 <div>
                   <AllocationBar
@@ -2181,7 +2193,7 @@ export function UpsidePortfolioPage() {
                         label: (
                           <span className="inline-flex items-center gap-1.5">
                             How bumpy
-                            <InfoTip text="This is not a measurement of these companies. It is the fall this app assumes for a mix of these kinds of business in a bad stretch, from one figure kept per kind. Nobody knows what the real one would be." />
+                            <InfoTip text="Not a measurement of these companies. It is the fall this app assumes for this mix of businesses in a bad stretch, from one figure per kind. Nobody knows the real one." />
                           </span>
                         ),
                         value: fundPersonality.riskBand.label,
@@ -2251,9 +2263,10 @@ export function UpsidePortfolioPage() {
                   row rather than sitting beside a hole.
                 */}
                 <div className="grid items-start gap-3 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
-                  {openHoldings.map((h) => (
+                  {openHoldings.map((h, i) => (
                     <FundPosition
                       key={h.id}
+                      index={i}
                       holding={h}
                       price={quotes[h.ticker]?.price ?? null}
                       spark={quotes[h.ticker]?.sparkline}
@@ -2282,7 +2295,7 @@ export function UpsidePortfolioPage() {
                     return i === 0 ? (
                       <article
                         key={r.id}
-                        className={cn("flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
+                        className={cn("flex flex-col gap-2 rounded-xl card-sheen glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <RecapMeta r={r} />
@@ -2295,7 +2308,7 @@ export function UpsidePortfolioPage() {
                     ) : (
                       <details
                         key={r.id}
-                        className="group overflow-hidden rounded-xl glass ring-1 ring-foreground/20"
+                        className="group overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20"
                       >
                         <summary className="flex list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
                           <ChevronRight
@@ -2326,10 +2339,9 @@ export function UpsidePortfolioPage() {
             <section className="flex flex-col gap-4">
               <SectionHeading title="Every decision, in order" why />
               {reports.length === 0 ? (
-                <p className={cn("rounded-xl glass ring-1 ring-foreground/20 text-center text-sm leading-relaxed text-muted-foreground", PANEL_PAD)}>
-                  Nothing written down yet. The first decision is made after
-                  today&apos;s market close, and it will appear here with the
-                  reason behind it.
+                <p className={cn("rounded-xl card-sheen glass ring-1 ring-foreground/20 text-center text-sm leading-relaxed text-muted-foreground", PANEL_PAD)}>
+                  Nothing written down yet. The first decision comes after
+                  today&apos;s close, with its reason.
                 </p>
               ) : (
                 /* Latest report in full. Older ones stay collapsed, and
@@ -2345,7 +2357,7 @@ export function UpsidePortfolioPage() {
                     return i === 0 ? (
                       <article
                         key={r.id}
-                        className={cn("flex flex-col gap-2 rounded-xl glass ring-1 ring-foreground/20", PANEL_PAD)}
+                        className={cn("flex flex-col gap-2 rounded-xl card-sheen glass ring-1 ring-foreground/20", PANEL_PAD)}
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <ReportMeta r={r} />
@@ -2358,7 +2370,7 @@ export function UpsidePortfolioPage() {
                     ) : (
                       <details
                         key={r.id}
-                        className="group overflow-hidden rounded-xl glass ring-1 ring-foreground/20"
+                        className="group overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20"
                       >
                         <summary className="flex list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
                           <ChevronRight
@@ -2395,11 +2407,15 @@ export function UpsidePortfolioPage() {
                       : `The ${closedHoldings.length} companies Margus has sold`
                   }
                 />
-                <ul className="divide-y divide-border overflow-hidden rounded-xl glass ring-1 ring-foreground/20">
-                  {closedHoldings.map((h) => {
+                <ul className="divide-y divide-border overflow-hidden rounded-xl card-sheen glass ring-1 ring-foreground/20">
+                  {closedHoldings.map((h, i) => {
                     const made = h.realized_pnl;
                     return (
-                      <li key={h.id} className="px-4 py-3 text-sm">
+                      <li
+                        key={h.id}
+                        className="wave-in px-4 py-3 text-sm"
+                        style={{ ["--i" as string]: i * 2 }}
+                      >
                         <div className="flex items-baseline justify-between gap-3">
                           <span className="font-medium text-foreground">
                             {cashtag(h.ticker)}
@@ -2417,16 +2433,17 @@ export function UpsidePortfolioPage() {
                           ) : (
                             <span
                               className={cn(
-                                "flex items-center gap-1 font-mono text-sm font-semibold tabular-nums",
+                                "font-mono text-sm font-semibold tabular-nums",
                                 signedTone(made, "text-muted-foreground")
                               )}
                             >
-                              {made >= 0 ? (
-                                <Plus className="h-3 w-3" aria-hidden />
-                              ) : (
-                                <Minus className="h-3 w-3" aria-hidden />
-                              )}
-                              {currency(Math.abs(made), 0)}
+                              {/*
+                                The sign is a character, as on every other
+                                figure in the app. A plus and minus glyph
+                                drawn as icons stood a gap apart from the
+                                amount and read as a bullet.
+                              */}
+                              {signedCurrency(made, 0)}
                             </span>
                           )}
                         </div>

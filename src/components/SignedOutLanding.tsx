@@ -246,8 +246,7 @@ function WhoItsFor() {
         ))}
       </div>
       <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground">
-        Not for day trading, tips or being told what to buy. There is no buy
-        button and there never will be.
+        No tips, no day trading, no buy button. There never will be one.
       </p>
     </Section>
   );
@@ -277,13 +276,8 @@ const COMPARE_ROWS: readonly {
   ours: boolean;
 }[] = [
   {
-    what: "Why each company moved today",
-    cells: ["Rarely", "Rarely", "Every company, every day"],
-    ours: true,
-  },
-  {
     what: "The market, or the company's own news",
-    cells: ["Not said", "Not said", "One line each"],
+    cells: ["Not said", "Not said", "Every company, every day"],
     ours: true,
   },
   {
@@ -320,7 +314,7 @@ function Compare() {
         index="03"
         eyebrow="How it compares"
         title={BROKER_ANSWER}
-        detail="Your broker holds the money and adds it up to the cent. Why the number moved is left to you."
+        detail="Your broker counts the money to the cent. Why it moved is left to you."
       />
       <div className="card-sheen glass mt-8 overflow-hidden rounded-2xl border border-border">
         {/* Laptop: a real table, with this app's column lit. */}
@@ -491,19 +485,19 @@ const CIRCLE_POINTS = [
     icon: Users,
     title: "Share a portfolio with one person",
     detail:
-      "Invite a partner or a parent. You both own it and see all of it, what each of you paid included.",
+      "Invite a partner or a parent. You both see all of it, what each of you paid included.",
   },
   {
     icon: MessagesSquare,
     title: "Or show a circle, without what you paid",
     detail:
-      "Everybody sees what you hold and how it has gone. What you paid for it, and so whether you are up or down, stays yours.",
+      "Everybody sees what you hold. What you paid for it, and so your gain, stays yours.",
   },
   {
     icon: ShieldCheck,
     title: "Nobody is added for you",
     detail:
-      "Invite-only. Signing in never puts you in one, and nothing is shared until you share it.",
+      "Invite only. Signing in never puts you in one.",
   },
 ] as const;
 
@@ -766,9 +760,8 @@ function HeroHybrid({
               </span>
             </h1>
             <p className="mt-5 max-w-xl text-pretty text-lg leading-snug text-muted-foreground sm:mt-7 sm:text-xl">
-              Upside Lab reads every company you own, every day, and tells
-              you in plain English what moved it: the whole market, or news
-              of its own.
+              Every day, Upside Lab tells you in plain English what moved
+              each company you own: the whole market, or its own news.
             </p>
             <div className="mt-7 w-full max-w-sm sm:mt-9">
               <SignInMethods
@@ -789,8 +782,8 @@ function HeroHybrid({
               footer={
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-4">
                   <p className="min-w-[13rem] flex-1 text-xs leading-relaxed text-muted-foreground">
-                    Press a company to read about it. In the full sample the
-                    holdings are made up and the prices are real.
+                    Press a company to read about it.{" "}
+                    The holdings are made up and the prices are real.
                   </p>
                   {onLookAround ? (
                     <Button

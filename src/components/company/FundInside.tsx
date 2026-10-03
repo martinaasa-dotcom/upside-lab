@@ -77,8 +77,8 @@ export function FundInside({
         }
         subtitle={
           facts.fundCategory
-            ? `A ${facts.fundCategory.toLowerCase()} fund${facts.fundFamily ? ` run by ${facts.fundFamily}` : ""}. Buying it buys a slice of everything below.`
-            : "Buying this buys a slice of everything below, in these proportions."
+            ? `A ${facts.fundCategory.toLowerCase()} fund${facts.fundFamily ? ` run by ${facts.fundFamily}` : ""}. One share is a slice of everything below.`
+            : "One share is a slice of everything below."
         }
         icon={<PieChart className="h-4 w-4" />}
       />
@@ -109,11 +109,20 @@ export function FundInside({
                   <span className="relative w-20 shrink-0 font-mono text-sm tabular-nums text-foreground">
                     {cashtag(h.symbol)}
                   </span>
-                  <span className="relative min-w-0 flex-1 truncate text-sm text-muted-foreground">
-                    {h.name}
+                  {/*
+                    The name truncates and the chip does not. They were one
+                    truncating span, so on a phone the name kept its width
+                    and the chip was cut to "YOU O..." at the cell's edge:
+                    the one part of the row that is about the reader.
+                  */}
+                  <span className="relative flex min-w-0 flex-1 items-center gap-2">
+                    <span className="min-w-0 truncate text-sm text-muted-foreground">
+                      {h.name}
+                    </span>
                     {mine.has(h.symbol.toUpperCase()) && (
-                      <span className="ml-2 rounded-md border border-primary/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.06em] text-primary">
-                        You own it
+                      <span className="shrink-0 rounded-md border border-primary/40 px-1.5 py-0.5 font-mono text-xs uppercase tracking-[0.06em] text-primary">
+                        <span className="sm:hidden">Yours</span>
+                        <span className="hidden sm:inline">You own it</span>
                       </span>
                     )}
                   </span>
@@ -131,9 +140,8 @@ export function FundInside({
         <div className={cn(CARD, NESTED_PAD)}>
           <p className="text-sm leading-relaxed text-foreground">{sentence}</p>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            That is not a reason to do anything either way. Owning the same
-            companies twice is fine when it is on purpose, and this is only
-            the way to find out whether it is.
+            Not a reason to act either way. Owning a company twice is fine when
+            it is on purpose.
           </p>
         </div>
       )}
@@ -144,7 +152,7 @@ export function FundInside({
           <ul className="flex flex-col gap-2">
             {sectors.map((s) => (
               <li key={s.sector} className="flex items-center gap-3">
-                <span className="w-36 shrink-0 truncate text-sm text-muted-foreground">
+                <span className="w-40 shrink-0 truncate text-sm text-muted-foreground">
                   {s.sector}
                 </span>
                 <span className="relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-foreground/10">
