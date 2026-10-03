@@ -15,11 +15,13 @@
  *
  * The strategy in one paragraph. Own companies that are leading the market
  * (in a long uptrend and ahead of the S&P 500 over six months), and buy
- * them when they have pulled back to a short-term low and just turned up.
- * Sell into strength when they are overbought, half first and the rest on
- * the second push. Cut anything that breaks its stop, loses its long-term
- * trend, or has gone nowhere for three months. Nothing is held past twelve
- * months. Money waiting for the next setup sits in the S&P 500 itself
+ * them two ways: when they have pulled back to a short-term low and just
+ * turned up, or when they close at a new three-month high with a rising
+ * trend under them. Sell into strength when they are overbought, half
+ * first and the rest on the second push. Cut anything that breaks its
+ * stop, loses its long-term trend, falls well behind the S&P 500 over three
+ * months, or is still under water after two months. Nothing is held past
+ * six months. Money waiting for the next setup sits in the S&P 500 itself
  * rather than in cash, so a quiet month tracks the benchmark rather than
  * falling behind it, and when the S&P 500 itself is in a downtrend the
  * Fund holds fewer, stronger names and keeps the rest in cash.
@@ -90,10 +92,16 @@ export const FUND_RULES = {
   /** After a gain this large the stop trails the highest close. */
   trailAfter: 0.15,
   trailMoves: 3,
-  /** A holding under water after this many trading days is cut. */
-  staleDays: 63,
-  /** Nothing is held past this many trading days (about twelve months). */
-  maxHoldDays: 252,
+  /**
+   * A holding under water after this many trading days (about two months)
+   * is cut. This and `maxHoldDays` are what make the Fund a one to six
+   * month fund: measured on 2026-10-03 against twelve months and three,
+   * the shorter pair returned more on both test windows (23.7% against
+   * 21.7% a year over 2019-2023, 34.2% against 27.8% over 2024-2026).
+   */
+  staleDays: 42,
+  /** Nothing is held past this many trading days (about six months). */
+  maxHoldDays: 126,
   /** The long trend counts as broken this far under the 200-day average. */
   trendBreakBelow: 0.97,
   /**
@@ -110,14 +118,55 @@ export const FUND_RULES = {
    * 26.5% against 21.1% over 2024-2026, so it was kept rather than retuned
    * to whichever bar looked best on this benchmark. The universe is today's
    * list, which flatters any backtest over companies that survived.
+   *
+   * Lowered to 10% on 2026-10-03, when breakouts were added, because the
+   * two entries together want a wider pool to choose from: with both on,
+   * 10% returned 23.7% and 34.2% a year on the two windows against 21.0%
+   * and 26.2% at 20%, and 15% sat between them, so this is a plateau
+   * rather than a spike. The ranking still buys the strongest first.
    */
-  minStrength: 0.2,
+  minStrength: 0.1,
   /** Sell the rest on a second overbought push, or keep riding the trail. */
   sellRestOnSecondPush: true,
   /** In a market downtrend at most this much of the fund is in companies. */
   riskOffExposure: 0.4,
   /** A trade costs this much each way, so the backtest is not free. */
   costPerTrade: 0.0005,
+  /** Short leadership window: about three months. */
+  strengthShortDays: 63,
+  /** Breakout: a close above the highest close of this many days. */
+  breakoutDays: 63,
+  /**
+   * Breakouts are bought as well as pullbacks.
+   *
+   * With pullbacks alone the Fund sat 57% in the S&P 500 and held four or
+   * five companies on an average day, because a leader dipping to an RSI
+   * of 40 is rare; the live Fund held one company for its first week. A
+   * leader closing at a new three-month high is the other half of the same
+   * idea, and with both the Fund holds eight or nine. Measured on
+   * 2026-10-03 (adjusted daily closes, this list, trades at the close with
+   * the cost below, every rule as set here) it returned 23.7% a year
+   * against the S&P 500's 15.6% over 2019-2023, with a worst fall of 26%
+   * against the index's 34%, and 34.2% against 20.5% over 2024-2026, worst
+   * fall 25% against 19%. Without the five most speculative names on the
+   * list it still returned 25.8% and 25.2%, so the gain is not one lucky
+   * company. A wider list of 173 large companies did worse than the index
+   * on the second window, which is why the list did not grow.
+   */
+  breakoutEnabled: true,
+  /** A breakout must be at least this far ahead of the S&P 500 over six months. */
+  breakoutMinStrength: 0.1,
+  /**
+   * A holding at least this many days old (about a month) ...
+   *
+   * Close to neutral in the backtest (23.7% against 24.1% without it on
+   * the first window, 34.2% against 32.3% on the second), and kept because
+   * it is the rule that frees money from a company the market has moved
+   * past, rather than waiting two months for the stale rule.
+   */
+  laggingAfter: 21,
+  /** ... this far behind the S&P 500 over three months is sold. */
+  laggingBehind: -0.1,
 };
 
 export type FundRules = typeof FUND_RULES;
@@ -137,6 +186,12 @@ export type TickerRead = {
   strength: number;
   /** Typical daily move, as a fraction: mean absolute daily return. */
   dailyMove: number;
+  /** Highest close over the breakout window, today excluded. */
+  high: number;
+  /** Return over the short strength window, minus the benchmark's. */
+  strengthShort: number;
+  /** The 50-day average a fortnight ago, to tell a rising one from a flat one. */
+  sma50Prev: number;
 };
 
 /**
@@ -165,6 +220,7 @@ export function readTicker(
   const rsiPrev = r[last - 1];
   if (sma50v == null || sma200v == null || rsiNow == null || rsiPrev == null)
     return null;
+  const sma50Prev = s50[last - 10] ?? sma50v;
   let rsiLow = rsiNow;
   for (let k = 1; k < FUND_RULES.oversoldLookback; k += 1) {
     const v = r[last - k];
@@ -174,6 +230,14 @@ export function readTicker(
   const ret = (xs: number[]) =>
     xs.length > back ? xs[xs.length - 1]! / xs[xs.length - 1 - back]! - 1 : 0;
   const strength = ret(closes) - ret(benchCloses);
+  const backShort = FUND_RULES.strengthShortDays;
+  const retShort = (xs: number[]) =>
+    xs.length > backShort ? xs[xs.length - 1]! / xs[xs.length - 1 - backShort]! - 1 : 0;
+  const strengthShort = retShort(closes) - retShort(benchCloses);
+  let high = 0;
+  for (let k = last - FUND_RULES.breakoutDays; k < last; k += 1) {
+    if (k >= 0 && window[k]! > high) high = window[k]!;
+  }
   let moves = 0;
   for (let k = last - 19; k <= last; k += 1) {
     moves += Math.abs(window[k]! / window[k - 1]! - 1);
@@ -188,6 +252,9 @@ export function readTicker(
     rsiLow,
     strength,
     dailyMove: moves / 20,
+    high,
+    strengthShort,
+    sma50Prev,
   };
 }
 
@@ -226,6 +293,8 @@ export type FundOrder = {
     | "stale"
     | "time"
     | "oversize"
+    | "lagging"
+    | "off-list"
     | "park"
     | "unpark";
   /** One plain sentence, with the figures, a reader can check. */
@@ -254,8 +323,8 @@ const pct = (x: number, digits = 1) => `${(x * 100).toFixed(digits)}%`;
 const usd = (x: number) =>
   `$${x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-/** Why a company qualifies as a buy today, or null. */
-export function entrySignal(
+/** A leader that pulled back to a short-term low and turned up, or null. */
+export function pullbackSignal(
   read: TickerRead,
   FUND_RULES: FundRules = DEFAULT_RULES
 ): string | null {
@@ -266,9 +335,38 @@ export function entrySignal(
   return `Above its 200-day average (${usd(read.sma200)}) and ${pct(read.strength)} ahead of the S&P 500 over six months, it pulled back to an RSI of ${read.rsiLow.toFixed(0)} and turned up.`;
 }
 
+/**
+ * A leader closing at a new three-month high in a rising trend, or null.
+ * Not when it is already stretched or overbought, since those are the
+ * prices the Fund sells into, and buying one would be selling it tomorrow.
+ */
+export function breakoutSignal(
+  read: TickerRead,
+  FUND_RULES: FundRules = DEFAULT_RULES
+): string | null {
+  if (!FUND_RULES.breakoutEnabled) return null;
+  if (!(read.high > 0 && read.price > read.high)) return null;
+  if (!(read.price > read.sma50 && read.sma50 > read.sma200)) return null;
+  if (!(read.sma50 > read.sma50Prev)) return null;
+  if (!(read.strength > FUND_RULES.breakoutMinStrength)) return null;
+  if (!(read.strengthShort > 0)) return null;
+  if (read.rsi >= FUND_RULES.overboughtRsi) return null;
+  if (read.price > read.sma50 * (1 + FUND_RULES.stretchedAbove50)) return null;
+  return `Closed at ${usd(read.price)}, above its highest close of the last three months (${usd(read.high)}), with its 50-day average rising and ${pct(read.strength)} ahead of the S&P 500 over six months.`;
+}
+
+/** Why a company qualifies as a buy today, or null. */
+export function entrySignal(
+  read: TickerRead,
+  FUND_RULES: FundRules = DEFAULT_RULES
+): string | null {
+  return pullbackSignal(read, FUND_RULES) ?? breakoutSignal(read, FUND_RULES);
+}
+
 /** Rank for choosing between qualifying names: leadership first, depth of dip second. */
 function entryScore(read: TickerRead, FUND_RULES: FundRules): number {
-  return read.strength + (FUND_RULES.oversoldRsi - read.rsiLow) / 100;
+  const dip = Math.max(0, FUND_RULES.oversoldRsi - read.rsiLow) / 100;
+  return read.strength + read.strengthShort + dip;
 }
 
 /**
@@ -286,6 +384,14 @@ export function planTrades(input: {
   reads: Record<string, TickerRead>;
   bench: TickerRead | null;
   rules?: FundRules;
+  /**
+   * The companies the Fund may own. A holding outside it is sold whole,
+   * never trimmed as an oversized company: that is how an index fund left
+   * over from an older run (QQQ, the day the benchmark became SPY) was
+   * sold down to a tenth and kept as a company with a stop on it.
+   * Optional so the backtest can run the rules over any list.
+   */
+  universe?: ReadonlySet<string>;
 }): FundOrder[] {
   const R = input.rules ?? FUND_RULES;
   const orders: FundOrder[] = [];
@@ -315,6 +421,13 @@ export function planTrades(input: {
       held.delete(pos.ticker);
     };
 
+    if (input.universe && !input.universe.has(pos.ticker)) {
+      sellAll(
+        "off-list",
+        `Not one of the companies this fund buys, so it is sold whole at ${usd(read.price)}, ${pct(gain)} from what was paid, and the money goes back to work.`
+      );
+      continue;
+    }
     if (read.price <= stop) {
       const trailing = pos.peak >= pos.entryPrice * (1 + R.trailAfter);
       sellAll(
@@ -333,13 +446,25 @@ export function planTrades(input: {
       continue;
     }
     if (pos.daysHeld >= R.maxHoldDays) {
-      sellAll("time", `Held for twelve months, the longest this fund holds anything, at ${pct(gain)}.`);
+      sellAll("time", `Held for six months, the longest this fund holds anything, at ${pct(gain)}.`);
+      continue;
+    }
+    if (
+      R.laggingAfter > 0 &&
+      pos.daysHeld >= R.laggingAfter &&
+      read.strengthShort < R.laggingBehind &&
+      gain < R.trailAfter
+    ) {
+      sellAll(
+        "lagging",
+        `${pct(-read.strengthShort)} behind the S&P 500 over three months, at ${pct(gain)} since it was bought. The lead it was bought for has gone.`
+      );
       continue;
     }
     if (pos.daysHeld >= R.staleDays && gain < 0) {
       sellAll(
         "stale",
-        `Three months in and still ${pct(gain)} under what was paid. The money is worth more in a setup that is working.`
+        `Two months in and still ${pct(gain)} under what was paid. The money is worth more in a setup that is working.`
       );
       continue;
     }

@@ -93,6 +93,42 @@ export function fundTotalReturn(input: {
 }
 
 /**
+ * The return since the start, split into what the open holdings are up or
+ * down and what has already been taken.
+ *
+ * Each holding card prints its own gain against what was paid for it, and
+ * nothing printed what had been sold: a trim or an exit turns a gain or a
+ * loss into cash and the card that carried it disappears or shrinks, and
+ * every trade costs a little. So a reader could add up four green cards
+ * and find the Fund in the red. Measured on 2026-10-03, the cards came to
+ * +$352 under a Fund down $1,139, the gap being a sale of QQQ at a loss and
+ * the costs of the trades. `taken` is the remainder rather than a sum of
+ * recorded sales, so the two always add up to the total exactly, whatever
+ * a past run did or did not write down.
+ */
+export function fundReturnSplit(input: {
+  totalDollar: number | null;
+  holdings: FundMarkHolding[];
+  quotes: Record<string, { price?: number } | undefined>;
+}): { open: number; taken: number } | null {
+  if (input.totalDollar == null || !Number.isFinite(input.totalDollar)) return null;
+  const open = roundMoney(
+    sumMoney(
+      input.holdings
+        .filter((h) => !h.status || h.status === "open")
+        .map((h) => {
+          const quoted = input.quotes[h.ticker]?.price;
+          const basis = finiteNumber(h.cost_basis);
+          const px =
+            typeof quoted === "number" && Number.isFinite(quoted) ? quoted : basis;
+          return finiteNumber(h.shares) * (px - basis);
+        })
+    )
+  );
+  return { open, taken: roundMoney(input.totalDollar - open) };
+}
+
+/**
  * The benchmark's own move since the fund's first day, or null.
  *
  * Same rule as above and for the same reason: with no inception price and

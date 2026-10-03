@@ -72,6 +72,7 @@ import {
 } from "@/lib/portfolio-personality";
 import {
   fundQuoteCoverage,
+  fundReturnSplit,
   fundTotalReturn,
   fundDayBaseline,
   liveFundTodayMove,
@@ -961,8 +962,8 @@ function sliceLabel(pct: number): string {
 const FUND_RULE_STEPS = [
   {
     Icon: ArrowDownToLine,
-    title: "Buy a leader's dip",
-    line: "A company beating the S&P 500 pulls back and turns up.",
+    title: "Buy a leader",
+    line: "A company beating the S&P 500 dips and turns up, or hits a new high.",
     tone: "bg-[color-mix(in_oklch,var(--zone-cool)_18%,transparent)] text-[var(--zone-cool)]",
   },
   {
@@ -974,7 +975,7 @@ const FUND_RULE_STEPS = [
   {
     Icon: Scissors,
     title: "Cut what fails",
-    line: "A broken stop, a lost trend, or three flat months.",
+    line: "A broken stop, a lost trend, or a lead that has gone.",
     tone: "bg-muted text-muted-foreground",
   },
 ] as const;
@@ -1490,6 +1491,15 @@ export function UpsidePortfolioPage() {
   const { dollar: totalReturnDollar, pct: totalReturnPct } = fundTotalReturn({
     liveTotal: totalValue,
     startingCapital: fund?.starting_capital,
+  });
+  /*
+   * The return split into the open holdings and what has been sold, so the
+   * cards below and the figure above add up. See `fundReturnSplit`.
+   */
+  const returnSplit = fundReturnSplit({
+    totalDollar: totalReturnDollar,
+    holdings: openHoldings,
+    quotes,
   });
   const dayBaseline = fundDayBaseline(reports);
   const { todayDollar, todayPct } = liveFundTodayMove({
@@ -2014,6 +2024,22 @@ export function UpsidePortfolioPage() {
                         ? signedTone(totalReturnDollar, "text-muted-foreground")
                         : undefined,
                   },
+                  ...(returnSplit
+                    ? [
+                        {
+                          label: "On what it holds",
+                          value: signedCurrency(returnSplit.open, 0),
+                          sub: "Today's holdings against what was paid",
+                          tone: signedTone(Math.round(returnSplit.open), "text-foreground"),
+                        },
+                        {
+                          label: "Already taken",
+                          value: signedCurrency(returnSplit.taken, 0),
+                          sub: "Sales and trading costs",
+                          tone: signedTone(Math.round(returnSplit.taken), "text-foreground"),
+                        },
+                      ]
+                    : []),
                   {
                     label: (
                       <Explain
