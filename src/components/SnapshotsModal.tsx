@@ -169,7 +169,7 @@ export function SnapshotsModal({
 
   return (
     <ViewportOverlay
-      className="z-[60] flex items-center justify-center p-4"
+      className="z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClose={onClose}
     >
       <button
@@ -178,7 +178,7 @@ export function SnapshotsModal({
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative z-10 flex max-h-[min(100%,560px)] w-full max-w-md flex-col overflow-hidden rounded-xl glass-overlay modal-in ring-1 ring-foreground/20 shadow-sm">
+      <div className="relative z-10 flex max-h-[min(100%,560px)] w-full max-w-md flex-col overflow-hidden rounded-t-xl glass-overlay modal-in ring-1 ring-foreground/20 shadow-sm sm:rounded-xl">
         <div className="flex items-center justify-between border-b border-border surface-gutter py-4">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-primary" />
@@ -204,7 +204,7 @@ export function SnapshotsModal({
             Save a copy now
           </Button>
         </div>
-        <div className="scroll-host min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        <div className="scroll-host min-h-0 flex-1 overflow-y-auto px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {loading && snapshots.length === 0 ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading …

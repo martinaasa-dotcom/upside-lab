@@ -1058,7 +1058,10 @@ export function CcAdvisorChat({
             // input at every width. The keyboard rule in globals.css
             // drops the lift while the keys are up (the dock is hidden
             // then, and `--vv-height` is already the band above them).
-            "margus-open pointer-events-none fixed z-40 flex flex-col items-end justify-end gap-3 px-3 pt-3 pb-[max(0.75rem,var(--dock-clearance,var(--dock-pad,0.75rem)))]"
+            // z-[45] while open: one step over the notices pinned at
+            // the dock line (z-40), which otherwise sat on the message
+            // box at a phone's width, and still under every dialog.
+            "margus-open pointer-events-none fixed z-[45] flex flex-col items-end justify-end gap-3 px-3 pt-3 pb-[max(0.75rem,var(--dock-clearance,var(--dock-pad,0.75rem)))]"
           : // `lg:bottom-8` is gone on purpose. The bottom dock is
             // `fixed inset-x-0 bottom-0` at every width, so a flat 2rem
             // offset put this button *underneath* it on desktop: the dock

@@ -585,7 +585,7 @@ function LookAroundStrip({
         later in the document, this notice sat on top of Add holding on a
         phone and covered the search results a reader was choosing from.
       */
-      className="bottom-notice fixed z-40 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:left-1/2 sm:right-auto sm:w-[34rem] sm:-translate-x-1/2"
+      className="bottom-notice bottom-notice-beside fixed z-40 left-[max(1rem,env(safe-area-inset-left))] right-[max(1rem,env(safe-area-inset-right))] sm:left-1/2 sm:right-auto sm:w-[34rem] sm:-translate-x-1/2"
       role="region"
       aria-label="Sample portfolio"
     >

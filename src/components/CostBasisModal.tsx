@@ -39,7 +39,7 @@ export function CostBasisModal({
 
   return (
     <ViewportOverlay
-      className="z-[85] flex items-center justify-center p-4"
+      className="z-[85] flex items-end justify-center p-0 sm:items-center sm:p-4"
       onClose={onClose}
     >
       <button
@@ -48,7 +48,7 @@ export function CostBasisModal({
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-xl glass-overlay modal-in ring-1 ring-foreground/20">
+      <div className="relative flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-t-xl glass-overlay modal-in ring-1 ring-foreground/20 sm:rounded-xl">
         <div className="flex items-start justify-between gap-3 border-b border-border surface-gutter py-4">
           <div>
             <h2 className="font-semibold text-foreground">
@@ -106,7 +106,7 @@ export function CostBasisModal({
             </label>
           ))}
         </div>
-        <div className="flex justify-end gap-2 border-t border-border surface-gutter py-4">
+        <div className="flex justify-end gap-2 border-t border-border surface-gutter pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button type="button" variant="ghost" onClick={onClose}>
             Skip
           </Button>

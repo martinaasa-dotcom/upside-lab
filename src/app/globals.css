@@ -567,6 +567,19 @@ body {
   }
 
   /*
+   * A notice the full width of a phone stops short of Margus's button
+   * instead of climbing over it. The sample notice sat exactly on top of
+   * the button at 390 (both at the dock line, the notice later in the
+   * document), so tapping Margus pressed "Leave" and took the reader out
+   * of the sample. 4rem is the 56px button plus a gap.
+   */
+  @media (max-width: 639px) {
+    :root[data-bottom-corner] .bottom-notice.bottom-notice-beside {
+      right: calc(max(1rem, env(safe-area-inset-right)) + 4rem);
+    }
+  }
+
+  /*
    * Card sheen — a hairline top highlight, the way a pane of glass catches
    * light along its top edge rather than glowing all over. Some call sites
    * use it alone (no translucent fill under it), so it carries its own
