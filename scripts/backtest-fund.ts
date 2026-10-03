@@ -192,4 +192,4 @@ async function main() {
   }
 }
 
-void main();
+if (process.argv[1]?.endsWith("backtest-fund.ts")) void main();
