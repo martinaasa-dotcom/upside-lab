@@ -51,6 +51,27 @@ export const ARRIVAL_SELECTOR = [
 ].join(",");
 
 /**
+ * The element to measure for an arrival: its nearest ancestor that is not
+ * itself an arrival.
+ *
+ * NEVER THE ARRIVAL ITSELF, AND THAT IS THE WHOLE BUG THIS FIXES. A held
+ * element sits on its first frame, and the first frame of a line drawing in
+ * is a clip of `inset(0 100% 0 0)`, of a bar growing is `scale(0)`, of a dot
+ * arriving is `scale(0)`. Chrome's IntersectionObserver measures the target
+ * after its clip and transform, so a held line is a box of no width that
+ * can never be reported on screen, and is therefore never released: every
+ * chart line on Home, in the market reading and on the Fund card stayed
+ * invisible for good, with only its end dot drawn. The parent is laid out
+ * where the line will be and is never clipped or scaled by the arrival, so
+ * it says truthfully whether the reader can see the place the line is.
+ */
+export function measuredFor(el: Element): Element {
+  let at = el.parentElement;
+  while (at && at.matches(ARRIVAL_SELECTOR)) at = at.parentElement;
+  return at ?? el;
+}
+
+/**
  * Start watching. Returns the function that stops it. Safe to call where
  * there is no `IntersectionObserver` or `MutationObserver`: it does
  * nothing, and everything animates on mount as it always did.
@@ -67,45 +88,93 @@ export function watchArrivals(within?: Element): () => void {
   const root = within ?? document.body;
 
   /*
-    The first report on an element decides whether it is held; every later
-    one can only release it. Judging off the observer rather than off a rect
-    read at mount matters: a section mounts where it will not stay, because
-    the panels above it are still arriving, and a rect read in that moment
-    put Home's gauges on screen when they settled 110px under the fold.
+    Arrivals are grouped by the element they are measured on (see
+    `measuredFor`). The first report on that element decides whether its
+    arrivals are held; any later one can only release them. Judging off the
+    observer rather than off a rect read at mount matters: a section mounts
+    where it will not stay, because the panels above it are still arriving,
+    and a rect read in that moment put Home's gauges on screen when they
+    settled 110px under the fold.
   */
-  const judged = new WeakSet<Element>();
+  type Group = { judged: boolean; released: boolean; members: Set<Element> };
+  const groups = new Map<Element, Group>();
+  const placed = new WeakSet<Element>();
+
+  const release = (box: Element, group: Group) => {
+    group.released = true;
+    for (const el of group.members) el.removeAttribute("data-await-view");
+    group.members.clear();
+    seen.unobserve(box);
+    groups.delete(box);
+  };
+
   const seen = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        const el = entry.target;
-        if (!judged.has(el)) {
-          judged.add(el);
-          if (entry.isIntersecting) {
-            seen.unobserve(el);
-          } else {
-            el.setAttribute("data-await-view", "");
-          }
+        const group = groups.get(entry.target);
+        if (!group) continue;
+        if (entry.isIntersecting) {
+          release(entry.target, group);
           continue;
         }
-        if (!entry.isIntersecting) continue;
-        el.removeAttribute("data-await-view");
-        seen.unobserve(el);
+        if (!group.judged) {
+          group.judged = true;
+          for (const el of group.members) el.setAttribute("data-await-view", "");
+        }
       }
+      armFailsafe();
     },
     /* Released once a little of it has cleared the bottom of the screen,
        so the motion happens where the eye already is. */
     { rootMargin: "0px 0px -8% 0px" }
   );
 
+  /*
+    A SECOND WITNESS, SO A HELD CHART CAN NEVER BE LOST FOR GOOD.
+
+    The observer was the only thing that could release an arrival, and when
+    it misjudged one, nothing else ever looked again. While anything is
+    held, a slow sweep reads where each measured element actually is and
+    releases any that are on screen. It costs one rect read per held group
+    every second and a half, and stops itself the moment nothing is held.
+  */
+  let failsafe: number | null = null;
+  const sweep = () => {
+    failsafe = null;
+    const bottom = window.innerHeight * 0.92;
+    for (const [box, group] of groups) {
+      if (!group.judged) continue;
+      const r = box.getBoundingClientRect();
+      const shown = r.width > 0 && r.height > 0 && r.top < bottom && r.bottom > 0;
+      if (shown) release(box, group);
+    }
+    armFailsafe();
+  };
+  function armFailsafe() {
+    if (failsafe !== null) return;
+    const anyHeld = [...groups.values()].some((g) => g.judged && !g.released);
+    if (anyHeld) failsafe = window.setTimeout(sweep, 1500);
+  }
+
   const consider = (el: Element) => {
-    if (judged.has(el)) return;
+    if (placed.has(el)) return;
+    placed.add(el);
     /*
       Never on the signed-out landing. Holding a bar there until it is
       scrolled to is a scroll reveal, and that page does not have them
       (landing-paint.test.ts): its life is in what a reader presses.
     */
     if (el.closest(".landing-field")) return;
-    seen.observe(el);
+    const box = measuredFor(el);
+    const group = groups.get(box);
+    if (group) {
+      group.members.add(el);
+      // Joining a group that is already held: hold this one with it.
+      if (group.judged) el.setAttribute("data-await-view", "");
+      return;
+    }
+    groups.set(box, { judged: false, released: false, members: new Set([el]) });
+    seen.observe(box);
   };
 
   const scan = (node: Node) => {
@@ -125,5 +194,10 @@ export function watchArrivals(within?: Element): () => void {
   return () => {
     added.disconnect();
     seen.disconnect();
+    if (failsafe !== null) window.clearTimeout(failsafe);
+    for (const group of groups.values()) {
+      for (const el of group.members) el.removeAttribute("data-await-view");
+    }
+    groups.clear();
   };
 }

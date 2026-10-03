@@ -121,6 +121,14 @@ describe("surfaces that ramp through near-black", () => {
     });
   }
 
+  it("puts the grain back over the header, whose blur erases the field's", () => {
+    // A 40px blur averages the field's two levels of grain to nothing, and
+    // the header showed the bands the dither exists to hide.
+    expect(CSS).toMatch(
+      /@media \(min-width: 768px\) \{\s*\.chrome-pane \{\s*filter: url\(#ambient-dither\);/
+    );
+  });
+
   it("does not put a private glow behind the sample cards", () => {
     expect(CSS).not.toContain(".ambient-glow {");
     for (const path of SAMPLE_SITES) {

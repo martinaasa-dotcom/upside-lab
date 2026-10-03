@@ -7,9 +7,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { ARRIVAL_SELECTOR, watchArrivals } from "@/lib/play-in-view";
+import { ARRIVAL_SELECTOR, measuredFor, watchArrivals } from "@/lib/play-in-view";
 
 const MOTION = readFileSync("src/app/motion.css", "utf8");
+const WATCHER = readFileSync("src/lib/play-in-view.ts", "utf8");
 const GLOBALS = readFileSync("src/app/globals.css", "utf8");
 const CSS = `${GLOBALS}\n${MOTION}`;
 
@@ -68,3 +69,43 @@ describe("charts arrive where somebody can see them", () => {
     stop();
   });
 });
+
+/**
+ * A held arrival sits on its first frame, and the first frame of a line is
+ * clipped to no width and of a bar or a dot is scaled to nothing. Chrome
+ * measures an observed element after its clip and transform, so observing
+ * the arrival itself reports it off screen forever and it is never
+ * released: every chart line on Home stayed invisible with only its end
+ * dot drawn. These hold the shape of the fix.
+ */
+describe("a held arrival can always be released", () => {
+  type Fake = { matches: (s: string) => boolean; parentElement: Fake | null; name: string };
+  const node = (name: string, arrival: boolean, parent: Fake | null): Fake => ({
+    name,
+    parentElement: parent,
+    matches: (sel: string) => arrival && sel === ARRIVAL_SELECTOR,
+  });
+
+  it("is measured on its nearest ancestor that is not itself an arrival", () => {
+    const panel = node("panel", false, null);
+    const row = node("row", true, panel);
+    const bar = node("bar", true, row);
+    expect((measuredFor(bar as unknown as Element) as unknown as Fake).name).toBe("panel");
+    const svg = node("svg", false, panel);
+    const line = node("line", true, svg);
+    expect((measuredFor(line as unknown as Element) as unknown as Fake).name).toBe("svg");
+  });
+
+  it("never observes the arrival element itself", () => {
+    const observed = [...WATCHER.matchAll(/seen\.observe\(([^)]*)\)/g)].map((m) => m[1]);
+    expect(observed.length).toBeGreaterThan(0);
+    for (const target of observed) expect(target).toBe("box");
+    expect(WATCHER).toMatch(/const box = measuredFor\(el\);/);
+  });
+
+  it("has a second witness that releases anything on screen the observer missed", () => {
+    expect(WATCHER).toMatch(/const sweep = \(\) =>/);
+    expect(WATCHER).toMatch(/window\.setTimeout\(sweep, 1500\)/);
+  });
+});
+
