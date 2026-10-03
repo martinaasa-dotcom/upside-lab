@@ -8,6 +8,7 @@ import type { BriefPoint, CompanyBrief } from "@/lib/ai/company-brief";
 import type { CompanyArticle } from "@/lib/company/sources";
 import type { ModelRun } from "@/lib/ai/model-label";
 import { GitCompare, ThumbsDown, ThumbsUp } from "lucide-react";
+import type { ReactNode } from "react";
 
 /**
  * The case for, the case against, and what would change the picture.
@@ -91,6 +92,7 @@ export function CompanyCases({
   at,
   model,
   shared,
+  status,
 }: {
   ticker: string;
   brief: CompanyBrief;
@@ -98,6 +100,12 @@ export function CompanyCases({
   at?: string | null;
   model?: ModelRun | null;
   shared?: boolean;
+  /**
+   * How current this argument is (`BriefStatus`), drawn first under the
+   * heading, because a reader weighing a case for and against needs the
+   * date and anything that has happened since before the points.
+   */
+  status?: ReactNode;
 }) {
   const provenance = companyBriefProvenance({
     ticker,
@@ -121,6 +129,8 @@ export function CompanyCases({
         subtitle="Written by a language model. Every point names what it rests on."
         icon={<GitCompare className="h-4 w-4" />}
       />
+
+      {status}
 
       {/*
         `items-start`, so neither card is stretched to the other's height.

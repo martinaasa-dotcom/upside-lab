@@ -1,6 +1,7 @@
 import { PANEL_STACK, Panel } from "@/components/ui/Panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResearchChrome } from "@/components/research/ResearchChrome";
+import { SessionResumeShell } from "@/components/SessionResumeShell";
 
 /**
  * What a reader sees while a research page is still being built.
@@ -84,7 +85,16 @@ function QaPanelSkeleton({
 }
 
 export default function ResearchTickerLoading() {
+  /*
+    Behind the same session hint as the page itself: a browser that was
+    signed in last time is about to be given the research room, not this,
+    so it gets the loading shell every room opens on rather than a public
+    skeleton that is replaced by something else entirely.
+  */
   return (
+    <>
+    <SessionResumeShell />
+    <div data-signed-out-view>
     <ResearchChrome>
       {/*
         * The skeleton stacks like the page it becomes.
@@ -175,5 +185,7 @@ export default function ResearchTickerLoading() {
         </Panel>
       </div>
     </ResearchChrome>
+    </div>
+    </>
   );
 }

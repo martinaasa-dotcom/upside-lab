@@ -1,4 +1,6 @@
 import { HeaderBrand } from "@/components/HeaderBrand";
+import { AppLink } from "@/components/research/AppLink";
+import { SignedOutMark } from "@/components/research/SignedOutMark";
 import { Button } from "@/components/ui/button";
 import {
   LEGAL_CITY,
@@ -25,9 +27,21 @@ import type { ReactNode } from "react";
  * whose whole job is to be read start to finish is the worst possible
  * place to pay that again.
  */
-export function ResearchChrome({ children }: { children: ReactNode }) {
+export function ResearchChrome({
+  children,
+  ticker,
+}: {
+  children: ReactNode;
+  /**
+   * The company on this page, if any. The header's way into the app then
+   * lands on that company's own room, through the sign-in for somebody
+   * with no account, rather than on a home screen.
+   */
+  ticker?: string;
+}) {
   return (
     <div className="page-frame flex min-h-dvh flex-col bg-background text-foreground">
+      <SignedOutMark />
       <header className="border-b border-border">
         <div className="surface-gutter mx-auto flex w-full min-w-0 max-w-[1200px] items-center justify-between gap-3 py-3">
           <HeaderBrand />
@@ -35,9 +49,9 @@ export function ResearchChrome({ children }: { children: ReactNode }) {
             <Button asChild variant="ghost" size="sm">
               <Link href="/research">All companies</Link>
             </Button>
-            <Button asChild size="sm">
-              <Link href="/login">Open {PRODUCT_NAME}</Link>
-            </Button>
+            <AppLink ticker={ticker} size="sm">
+              Open {PRODUCT_NAME}
+            </AppLink>
           </div>
         </div>
       </header>

@@ -47,3 +47,26 @@ export function workspaceRoomId(pathname: string): string | null {
   if (path.startsWith("/admin")) return "admin";
   return null;
 }
+
+/**
+ * The room the shell should draw for this path, for this reader.
+ *
+ * Every path answers as `workspaceRoomId` does, with one exception: a
+ * company page for somebody who is not signed in has no room, so the shell
+ * hands the path to its page instead, and the page is the public,
+ * server-rendered, indexed one (`src/app/stock/[ticker]/page.tsx`).
+ *
+ * That split is how one address serves both readers without either of
+ * them noticing the other exists. A crawler and a stranger get the page:
+ * the whole company in HTML, with its own small header and a way into the
+ * app. A signed-in reader gets the room: the app's own header and dock,
+ * so Home, Pulse, Circle and the rest are one press away exactly as they
+ * are from anywhere else, plus their own holdings, levels and fit. Both
+ * render the server's page first, since nobody is signed in during a
+ * server render, which is what keeps the two in agreement at hydration.
+ */
+export function shellRoomId(pathname: string, signedIn: boolean): string | null {
+  const room = workspaceRoomId(pathname);
+  if (!signedIn && room?.startsWith("stock:")) return null;
+  return room;
+}

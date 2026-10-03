@@ -29,7 +29,8 @@ import { SignInMethods } from "@/components/SignInMethods";
 import { PAGE_FRAME_CLASS } from "@/lib/page-shell";
 import { supabaseIsConfigured } from "@/lib/supabase/env";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { internalNextFrom } from "@/lib/site-url";
 import { useEffect, useState } from "react";
 
 type Props = {
@@ -118,7 +119,7 @@ function gateReason(pathname: string): string {
 }
 
 export function SignInGate({ children, invite: seededInvite = null }: Props) {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, ready: authReady, signInWithGoogle } = useAuth();
   const pathname = usePathname();
   const compact = compactSignIn(pathname);
   const [busy, setBusy] = useState(false);
@@ -158,6 +159,23 @@ export function SignInGate({ children, invite: seededInvite = null }: Props) {
    */
   const minAge = invite?.kind === "classroom" ? 13 : 16;
   const needsAuth = supabaseIsConfigured();
+  const router = useRouter();
+
+  /*
+    `/login?next=/stock/MU` for somebody already signed in goes straight to
+    where it was asked to. It is the address a public research page links
+    to, because that page is cached for everybody and cannot know who is
+    reading it, and a reader who is already signed in should land in the
+    company's room rather than on a sign-in screen they do not need.
+  */
+  useEffect(() => {
+    // `authReady`, so the last session's stand-in cannot send somebody
+    // whose session has quietly expired into a room that turns them away.
+    if (!user || !authReady || !compact) return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.get("next")) return;
+    router.replace(internalNextFrom(url.pathname, url.search));
+  }, [user, authReady, compact, router]);
 
   useEffect(() => {
     const sync = () => setLooking(isLookingAround());

@@ -10,17 +10,17 @@ import { CompanyCases } from "@/components/company/CompanyCases";
 import { CompanyNumbers } from "@/components/company/CompanyNumbers";
 import { CompanyPath } from "@/components/company/CompanyPath";
 import { CompanySources } from "@/components/company/CompanySources";
-import { FourQuestions } from "@/components/company/FourQuestions";
 import { FundInside } from "@/components/company/FundInside";
-import { ValueGlance } from "@/components/company/ValueGlance";
+import { BriefStatus } from "@/components/company/BriefStatus";
+import { AppLink } from "@/components/research/AppLink";
+import { LivePriceProvider } from "@/components/research/LivePrice";
 import { ResearchChrome } from "@/components/research/ResearchChrome";
+import { ResearchLiveSections } from "@/components/research/ResearchLiveSections";
 import { ResearchPrice } from "@/components/research/ResearchPrice";
-import { Button } from "@/components/ui/button";
-import type { CompanyPage } from "@/lib/company/client";
-import { companyHref } from "@/lib/company/client";
+import { ShareButton } from "@/components/research/ShareButton";
+import { briefStateOf, type CompanyPage } from "@/lib/company/client";
 import { isCryptoLike, isFundLike, shortDescription } from "@/lib/company/facts";
 import { fairValueRead } from "@/lib/company/fair-value";
-import { fourQuestions } from "@/lib/company/four-questions";
 import { ADVICE_DISCLAIMER_SHORT } from "@/lib/disclaimer";
 import { FORECAST_YEARS } from "@/lib/forecast";
 import { NO_VALUE, cashtag } from "@/lib/format";
@@ -37,12 +37,13 @@ import {
   serializeJsonLd,
 } from "@/lib/research/structured-data";
 import {
+  isResearchTicker,
   researchGroupFor,
   researchHref,
   researchNeighbours,
 } from "@/lib/research/universe";
 import { formatDateTime } from "@/lib/timezone";
-import { Building2, ChevronDown, HelpCircle } from "lucide-react";
+import { Building2, ChevronDown, HelpCircle, PenLine } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -89,31 +90,16 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
     modelYearTwo: yearTwo != null ? path?.[yearTwo] ?? null : null,
   });
 
-  const questions = fourQuestions({
-    facts,
-    read: fair,
-    nextEarnings: page.nextEarnings,
-    /*
-      No ladder: fair value zones belong to the reader who set them, and a
-      stranger has not set any. What is left is the one level down there
-      anybody can check, the lowest the share has traded in a year, named
-      as exactly that. It was `null`, which printed "Your fair value
-      floor: n/a" as the headline figure of the question a stranger most
-      wants answered.
-    */
-    exitLevel: facts.fiftyTwoWeekLow,
-    exitFromYear: true,
-    exitIsPersonal: false,
-    againstPoint: page.brief?.caseAgainst?.[0]?.point ?? null,
-  });
-
   const asked = researchQuestions({ facts, read: fair });
+  const state = briefStateOf(page);
+  const listed = isResearchTicker(ticker);
   const group = researchGroupFor(ticker);
   const neighbours = researchNeighbours(ticker);
   const title = researchTitle(facts);
 
   return (
-    <ResearchChrome>
+    <ResearchChrome ticker={ticker}>
+      <LivePriceProvider ticker={ticker} price={facts.price} code={code}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -173,13 +159,22 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
           }
           icon={<Building2 className="h-4 w-4" />}
           actions={
-            <ResearchPrice
-              ticker={ticker}
-              price={facts.price}
-              changePercent={facts.changePercent}
-              code={code}
-              at={facts.fetchedAt}
-            />
+            <div className="flex flex-col items-start gap-3 sm:items-end">
+              <ResearchPrice
+                ticker={ticker}
+                price={facts.price}
+                changePercent={facts.changePercent}
+                code={code}
+                at={facts.fetchedAt}
+              />
+              {/*
+                In the hero, where somebody decides they want to send this
+                to a friend, which is usually in the first few seconds. The
+                link works for whoever it is sent to: the page needs no
+                account.
+              */}
+              <ShareButton ticker={ticker} name={facts.name} />
+            </div>
           }
         />
         <div className="flex flex-wrap items-center gap-2">
@@ -244,30 +239,12 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
         </Panel>
       )}
 
-      {questions.length > 0 && (
-        <WidgetErrorBoundary name="The four questions">
-          <FourQuestions
-            ticker={ticker}
-            answers={questions}
-            usesModel={Boolean(page.brief?.caseAgainst?.length)}
-            model={page.model}
-            at={page.briefAt ?? facts.fetchedAt}
-          />
-        </WidgetErrorBoundary>
-      )}
-
-      {fair.estimate.price !== null && (
-        <WidgetErrorBoundary name="Valuation">
-          <ValueGlance
-            ticker={ticker}
-            facts={facts}
-            read={fair}
-            code={code}
-            at={page.briefAt ?? facts.fetchedAt}
-            model={page.model}
-          />
-        </WidgetErrorBoundary>
-      )}
+      {/*
+        The fair value zones, the four questions and the valuation, all
+        against the live price. The estimate they rest on is the page's;
+        only where today's price sits in it moves.
+      */}
+      <ResearchLiveSections page={page} />
 
       {isCryptoLike(facts) && (
         <Panel tone="warn">
@@ -313,8 +290,68 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
             at={page.briefAt}
             model={page.model}
             shared={page.briefShared}
+            status={
+              <div className="flex flex-col gap-3">
+                <BriefStatus
+                  state={state}
+                  ticker={ticker}
+                  briefAt={page.briefAt}
+                  code={code}
+                />
+                {/*
+                  A company off the published list is only rewritten when
+                  somebody with an account opens it, so that is said where
+                  it is true, and nowhere else.
+                */}
+                {state.kind === "stale" && !listed && (
+                  <AppLink
+                    ticker={ticker}
+                    variant="link"
+                    size="sm"
+                    className="self-start px-0"
+                    signedIn="Open it in Upside Lab to have it rewritten now"
+                  >
+                    Open it in Upside Lab to have it rewritten now
+                  </AppLink>
+                )}
+              </div>
+            }
           />
         </WidgetErrorBoundary>
+      )}
+
+      {/*
+        NO WRITTEN HALF YET, SAID AS WHAT IT IS.
+
+        A public page never spends a model run, so a company nobody has
+        asked about yet arrives with its figures and no argument. That is a
+        real state rather than a fault, and the honest description of it is
+        also the most natural invitation this page can make: the analysis
+        is written the first time somebody with an account opens it, and
+        from then on it is here for everybody, this reader included.
+      */}
+      {!page.brief && !page.thin && (
+        <Panel>
+          <PanelHeader
+            title="The written analysis is not here yet"
+            subtitle={
+              listed
+                ? `Every company on the research list is written within a day, and ${tag} is next in line. The figures above are already current.`
+                : `It is written the first time somebody with an account opens ${tag}, and from then on it is here for everybody who opens this page. The figures above are already current.`
+            }
+            icon={<PenLine className="h-4 w-4" />}
+          />
+          <div>
+            <AppLink
+              ticker={ticker}
+              variant="outline"
+              size="sm"
+              signedIn={`Open ${ticker} in Upside Lab`}
+            >
+              Have it written now
+            </AppLink>
+          </div>
+        </Panel>
       )}
 
       {page.brief && (
@@ -429,7 +466,7 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
       <Panel>
         <PanelHeader
           title={`Put ${ticker} next to what you already own`}
-          subtitle={`${PRODUCT_NAME} reads your whole portfolio the way this page reads one company.`}
+          subtitle={`${PRODUCT_NAME} reads your whole portfolio the way this page reads one company. Free, with nothing to connect.`}
         />
         <div className="flex flex-col gap-4">
           <ul className="flex flex-col divide-y divide-border border-y border-border text-sm text-muted-foreground">
@@ -437,21 +474,17 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
             <li className="py-2.5">Fair value zones you set, and a note when one is reached</li>
             <li className="py-2.5">{SUNDAY_EMAIL_LINE}</li>
           </ul>
+          {/*
+            The link lands on this same company inside the app, through
+            the sign-in for somebody who has no account yet and straight
+            there for somebody who has (`AppLink`), so the page they were
+            reading is the first thing they see on the other side.
+          */}
           <div className="flex flex-wrap items-center gap-3">
-            <Button asChild>
-              <Link href="/login">Open {PRODUCT_NAME}</Link>
-            </Button>
-            {/*
-              Somebody who already has an account and followed a link into
-              this page wants the room with their own holdings in it, and
-              the app answers `/stock/<ticker>` for exactly that.
-            */}
-            <Link
-              href={companyHref(ticker)}
-              className="text-sm text-muted-foreground underline hover:text-foreground"
-            >
-              Already signed in? Open {ticker} with your holdings
-            </Link>
+            <AppLink ticker={ticker} signedIn={`Open ${ticker} with your holdings`}>
+              Open {ticker} in {PRODUCT_NAME}
+            </AppLink>
+            <ShareButton ticker={ticker} name={facts.name} variant="ghost" />
           </div>
         </div>
       </Panel>
@@ -460,6 +493,7 @@ export function ResearchPage({ page }: { page: CompanyPage }) {
         Every number comes from a public feed, linked in Sources. {name} did
         not write this page. {ADVICE_DISCLAIMER_SHORT}
       </p>
+      </LivePriceProvider>
     </ResearchChrome>
   );
 }

@@ -13,6 +13,9 @@ import type { CompanyFacts } from "@/lib/company/facts";
 import type { CompanyReading } from "@/lib/company/readings";
 import type { CompanyArticle, CompanySource } from "@/lib/company/sources";
 import type { ModelRun } from "@/lib/ai/model-label";
+import type { BriefState } from "@/lib/company/brief-store";
+
+export type { BriefState };
 
 export type CompanyPage = {
   facts: CompanyFacts;
@@ -27,8 +30,32 @@ export type CompanyPage = {
   briefAt: string | null;
   /** The page was written for whoever looked this company up first. */
   briefShared?: boolean;
+  /**
+   * Whether the written half is current, kept with a note while it is
+   * rewritten, or absent. Missing on a page cached before this existed,
+   * which is read as current, since that is all such a page ever claimed.
+   */
+  briefState?: BriefState;
+  /** Somebody else's run is writing a new one right now; ask again soon. */
+  writing?: boolean;
   model: ModelRun | null;
 };
+
+/** The state of the written half, reading an older page as current. */
+export function briefStateOf(page: Pick<CompanyPage, "briefState">): BriefState {
+  return page.briefState ?? { kind: "fresh" };
+}
+
+/**
+ * Whether the room should ask for a rewrite behind the page it is showing.
+ * A thin company is never written, and a page somebody else is already
+ * writing is waited on rather than asked for twice.
+ */
+export function wantsRewrite(page: Pick<CompanyPage, "briefState" | "thin">): boolean {
+  if (page.thin) return false;
+  const state = briefStateOf(page);
+  return state.kind === "stale" || state.kind === "missing";
+}
 
 /*
   A little past the route's own worst case (`LLM_BUDGET_MS` plus the rest
@@ -65,6 +92,46 @@ export async function fetchCompanyPage(
   if (!res.ok) {
     throw new Error(
       data?.error || "Could not load that company. Try again in a moment."
+    );
+  }
+  return data;
+}
+
+/**
+ * Ask for the written half to be rewritten, for a page already on screen.
+ *
+ * This is the one call that may wait on a model, and nobody is looking at
+ * a skeleton while it does: the room is already showing the page on file.
+ * It answers with the new page, or with the old one marked `writing` when
+ * somebody else got there first, in which case the room asks the ordinary
+ * read again a few seconds later.
+ */
+export async function requestCompanyBrief(
+  ticker: string,
+  signal?: AbortSignal,
+  timeoutMs: number = FETCH_TIMEOUT_MS
+): Promise<CompanyPage> {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  let res: Response;
+  try {
+    res = await fetch(`/api/company/${encodeURIComponent(ticker)}/brief`, {
+      method: "POST",
+      cache: "no-store",
+      signal: combined,
+    });
+  } catch (err) {
+    if (timeout.aborted && !signal?.aborted) {
+      throw new Error("Rewriting that took too long. The page above is the last version.");
+    }
+    throw err;
+  }
+  const data = (await res.json().catch(() => ({}))) as CompanyPage & {
+    error?: string;
+  };
+  if (!res.ok) {
+    throw new Error(
+      data?.error || "Could not rewrite that page this time. The page above is the last version."
     );
   }
   return data;
@@ -116,6 +183,16 @@ export function forgetRecentCompanies() {
 /** `/stock/NVDA`. One place builds it so a link and its reader agree. */
 export function companyHref(ticker: string): string {
   return `/stock/${encodeURIComponent(ticker.trim().toUpperCase())}`;
+}
+
+/**
+ * Sign in, then land on this company's room with your own holdings beside
+ * it. The address every "open it in Upside Lab" on a public page uses,
+ * because `/stock/<ticker>` itself sends a browser with no session back to
+ * the public page (`research/public-access.ts`).
+ */
+export function companySignInHref(ticker: string): string {
+  return `/login?next=${encodeURIComponent(companyHref(ticker))}`;
 }
 
 /** The ticker in a `/stock/<ticker>` path, or null. */
