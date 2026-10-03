@@ -187,7 +187,8 @@ describe("the Fund room renders and says what it means", () => {
     expect(text).toMatch(/pretend/);
     expect(text).toMatch(/Nothing is edited/);
     expect(text).toMatch(/42 days have been written down/);
-    expect(text).toMatch(/Buy a leader's dip/);
+    expect(text).toMatch(/Buy a leader/);
+    expect(text).toMatch(/or hits a new high/);
   });
 
   it("draws a day's report and a week's recap without swallowing their words", () => {

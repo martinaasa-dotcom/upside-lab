@@ -10,6 +10,7 @@
 import {
   FUND_BENCHMARK,
   FUND_RULES,
+  entrySignal,
   readTicker,
   stopPrice,
   type FundPosition,
@@ -114,13 +115,15 @@ export function exitPlanFor(read: TickerRead): string {
     peak: read.price,
     trimmed: false,
   };
-  return `Stop at ${usd(stopPrice(pos, read))}; half sold at an RSI of ${FUND_RULES.overboughtRsi}, the rest on the next push; out after twelve months.`;
+  return `Stop at ${usd(stopPrice(pos, read))}; half sold at an RSI of ${FUND_RULES.overboughtRsi}, the rest on the next push; out after six months, or sooner if it falls well behind the S&P 500.`;
 }
 
 /**
  * The names closest to qualifying: leaders already in a long uptrend and
- * far enough ahead of the S&P 500, waiting only for the pullback. What
- * each is waiting for is a number, so a reader can watch for it too.
+ * far enough ahead of the S&P 500, waiting only for one of the two ways
+ * in. What each is waiting for is a number, so a reader can watch for it
+ * too: a dip to a short-term low, or a close above its three-month high,
+ * whichever is nearer.
  */
 export function watchlistFrom(
   reads: Record<string, TickerRead>,
@@ -133,12 +136,93 @@ export function watchlistFrom(
         !held.has(r.ticker) &&
         r.price > r.sma200 &&
         r.strength > FUND_RULES.minStrength &&
-        r.rsiLow > FUND_RULES.oversoldRsi
+        entrySignal(r) == null
     )
-    .sort((a, b) => a.rsi - b.rsi)
+    .map((r) => {
+      const toHigh = r.high > 0 ? r.high / r.price - 1 : Infinity;
+      const breakoutNear =
+        FUND_RULES.breakoutEnabled &&
+        r.sma50 > r.sma200 &&
+        toHigh >= 0 &&
+        toHigh < 0.05;
+      // Distance to each way in, on one scale: per cent to the high, or
+      // RSI points to the dip divided by ten.
+      const dipGap = Math.max(0, r.rsi - FUND_RULES.oversoldRsi) / 10;
+      const gap = breakoutNear ? Math.min(toHigh * 100, dipGap) : dipGap;
+      const waitFor =
+        breakoutNear && toHigh * 100 <= dipGap
+          ? `A close above ${usd(r.high)}, its highest of the last three months (now ${usd(r.price)}).`
+          : `A pullback to an RSI of ${FUND_RULES.oversoldRsi} (now ${r.rsi.toFixed(0)}) while it holds above ${usd(r.sma200)}.`;
+      return { ticker: r.ticker, gap, waitFor };
+    })
+    .sort((a, b) => a.gap - b.gap)
     .slice(0, count)
-    .map((r) => ({
-      ticker: r.ticker,
-      waitFor: `A pullback to an RSI of ${FUND_RULES.oversoldRsi} (now ${r.rsi.toFixed(0)}) while it holds above ${usd(r.sma200)}.`,
-    }));
+    .map(({ ticker, waitFor }) => ({ ticker, waitFor }));
+}
+
+/**
+ * The trading days a run should write, oldest first.
+ *
+ * Every day after the last report up to the last finished session, and
+ * all of them in one run: a backlog used to drain one day per run, so a
+ * fund that started again a week back took days to catch up and set off
+ * the backlog alarm on the way. With no report yet the Fund starts on its
+ * inception date rather than on today, which is what lets a restart be
+ * replayed from the day it says it started. A day the benchmark has no
+ * close for (a holiday, or a close the feed has not published yet) is
+ * left out, because trading it would trade yesterday's prices under
+ * today's date.
+ */
+export function fundDaysToRun(input: {
+  lastReportDate: string | null;
+  inceptionDate: string | null;
+  latestSession: string;
+  /** Days the benchmark closed on; absent to skip that filter. */
+  benchDates?: readonly string[];
+  /** `tradingDaysBetween`, passed in so this stays free of the clock. */
+  between: (fromExclusive: string, toInclusive: string) => string[];
+}): string[] {
+  const { lastReportDate, inceptionDate, latestSession } = input;
+  let days: string[];
+  if (lastReportDate) {
+    days = input.between(lastReportDate, latestSession);
+  } else if (inceptionDate && inceptionDate <= latestSession) {
+    days = input.between(dayBefore(inceptionDate), latestSession);
+  } else {
+    days = [latestSession];
+  }
+  if (!input.benchDates) return days;
+  const traded = new Set(input.benchDates);
+  return days.filter((d) => traded.has(d));
+}
+
+function dayBefore(key: string): string {
+  const d = new Date(`${key}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Is the race's start line in the benchmark's own units?
+ *
+ * The first report's `spy_price` is where the index's line starts. On
+ * 2026-09-26 the Fund was reset to race SPY while the code still racing
+ * QQQ ran once more, and wrote QQQ's close ($744.50) as the start line
+ * against SPY's real $771.35, which drew the index 3.6% ahead before
+ * either had moved. Checked on every run against the benchmark's own
+ * close that day, so a repeat is an error the day it happens rather than
+ * a chart somebody has to notice is wrong.
+ */
+export function startLineOff(input: {
+  firstReportDate: string | null;
+  firstReportPrice: number | null;
+  benchSeries: { dates: readonly string[]; closes: readonly number[] };
+}): number | null {
+  const { firstReportDate, firstReportPrice, benchSeries } = input;
+  if (!firstReportDate || !(firstReportPrice && firstReportPrice > 0)) return null;
+  const i = benchSeries.dates.indexOf(firstReportDate);
+  if (i < 0) return null;
+  const close = benchSeries.closes[i]!;
+  const off = firstReportPrice / close - 1;
+  return Math.abs(off) > 0.01 ? off : null;
 }

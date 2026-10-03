@@ -98,7 +98,7 @@ export function buildFundNarrativeSystemPrompt(): string {
 ## This specific job: writing up Upside Fund's day
 Upside Fund is a paper portfolio that started at ${money(
     MARGUS_FUND_START_CAPITAL
-  )}. Its trades are made by written rules, not by you: it buys companies that are leading the S&P 500 when they pull back to a short-term low and turn up, sells half into overbought strength and the rest on the next push, and cuts anything that breaks its stop, loses its long-term trend or goes nowhere for three months. Money waiting for the next setup sits in the S&P 500 itself.
+  )}. Its trades are made by written rules, not by you: it buys companies that are leading the S&P 500 when they pull back to a short-term low and turn up, or when they close at a new three-month high, sells half into overbought strength and the rest on the next push, and cuts anything that breaks its stop, loses its long-term trend, falls well behind the S&P 500 or is still under water after two months. Nothing is held past six months. Money waiting for the next setup sits in the S&P 500 itself.
 
 You are writing the day's report about trades that have ALREADY been made. Do not suggest other trades, do not second-guess the rules, and do not invent a reason: every trade below comes with the figures that triggered it, and those figures are the reason. Keep every field to one short sentence. Plain English, no market slang.`;
 }
@@ -149,7 +149,7 @@ export function fallbackNarrative(input: {
         ? "The S&P 500's move today was not available."
         : `The S&P 500 ${move >= 0 ? "rose" : "fell"} ${Math.abs(move * 100).toFixed(1)}% today.`,
     closingNote:
-      "Waiting for the next leader to pull back to a short-term low and turn up.",
+      "Waiting for the next leader to dip to a short-term low or close at a new high.",
   };
 }
 

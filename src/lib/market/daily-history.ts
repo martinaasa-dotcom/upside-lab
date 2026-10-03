@@ -51,12 +51,52 @@ async function historyFor(
         );
         closes.push(close);
       }
+      withSettledClose({ dates, closes }, chart.meta);
       if (closes.length >= 60) return { dates, closes };
     } catch {
       /* try the next exchange */
     }
   }
   return null;
+}
+
+/**
+ * The day's close when the feed has not written it into the series yet.
+ *
+ * Yahoo publishes the day's bar with a null close for a while after the
+ * bell (measured on 2026-10-03: SPY's bar for 2 October still read null at
+ * 00:54 UTC, while the same response's `regularMarketPrice` was the close,
+ * $769.64, stamped 16:00 New York). Dropping the null left the series
+ * ending a day early, so a run for 2 October would have traded on 1
+ * October's prices under 2 October's date. The quote's price is taken
+ * only once its stamp is at or after 16:00 New York on a day later than
+ * the last bar, which is when it is the close rather than a live print.
+ */
+export function withSettledClose(
+  series: DailyCloseSeries,
+  meta: { regularMarketPrice?: number; regularMarketTime?: Date | string | number } | undefined
+): DailyCloseSeries {
+  const price = meta?.regularMarketPrice;
+  const raw = meta?.regularMarketTime;
+  if (!(typeof price === "number" && price > 0) || raw == null) return series;
+  const at = raw instanceof Date ? raw : new Date(typeof raw === "number" && raw < 1e12 ? raw * 1000 : raw);
+  if (Number.isNaN(at.getTime())) return series;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const part = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const day = `${part("year")}-${part("month")}-${part("day")}`;
+  const hour = Number(part("hour"));
+  const lastDay = series.dates.at(-1);
+  if (hour < 16 || (lastDay != null && day <= lastDay)) return series;
+  series.dates.push(day);
+  series.closes.push(price);
+  return series;
 }
 
 /** Daily closes, oldest first, keyed by the upper-cased ticker asked for. */

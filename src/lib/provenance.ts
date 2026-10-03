@@ -988,7 +988,7 @@ export function upsideFundProvenance(model?: ModelRun | null): Provenance {
     sources: [YAHOO_PRICES, MODEL_ITSELF],
     steps: [
       "Once a trading day, the rules read each company's trend, its strength against the S&P 500 and its RSI, the same arithmetic every day.",
-      "They buy leaders that have pulled back and turned up, sell into strength, and cut anything that breaks its stop, loses its trend or goes nowhere for three months. Money waiting for a setup sits in the S&P 500.",
+      "They buy leaders that have pulled back and turned up or closed at a new three-month high, sell into strength, and cut anything that breaks its stop, loses its trend, falls well behind the S&P 500 or is under water after two months. Nothing is held past six months. Money waiting for a setup sits in the S&P 500.",
       "The model is handed the trades and writes the headline. It cannot add, remove or resize one.",
       "Every trade is written down whether it works or not, and the record is never edited afterwards.",
       REWRITTEN_STEP,
