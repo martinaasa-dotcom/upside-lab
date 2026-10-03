@@ -1134,6 +1134,7 @@ export type Database = {
         Row: {
           anchor_price: number | null
           brief: Json
+          checked_at: string | null
           facts_key: string
           generated_at: string
           ticker: string
@@ -1142,6 +1143,7 @@ export type Database = {
         Insert: {
           anchor_price?: number | null
           brief: Json
+          checked_at?: string | null
           facts_key?: string
           generated_at?: string
           ticker: string
@@ -1150,10 +1152,26 @@ export type Database = {
         Update: {
           anchor_price?: number | null
           brief?: Json
+          checked_at?: string | null
           facts_key?: string
           generated_at?: string
           ticker?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      portfell_company_brief_claims: {
+        Row: {
+          claimed_at: string
+          ticker: string
+        }
+        Insert: {
+          claimed_at?: string
+          ticker: string
+        }
+        Update: {
+          claimed_at?: string
+          ticker?: string
         }
         Relationships: []
       }
@@ -1241,6 +1259,10 @@ export type Database = {
       portfell_claim_split_check: { Args: { p_day: string }; Returns: boolean }
       portfell_claim_fund_run: {
         Args: { p_day: string; p_stale_after?: string }
+        Returns: boolean
+      }
+      portfell_claim_company_brief: {
+        Args: { p_ticker: string; p_stale_after?: string }
         Returns: boolean
       }
       portfell_tickers_held: { Args: never; Returns: { ticker: string }[] }

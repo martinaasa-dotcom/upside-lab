@@ -74,7 +74,7 @@ export function onWorkspaceRefresh(
   return () => window.removeEventListener(WORKSPACE_REFRESH_EVENT, handle);
 }
 
-export { workspaceRoomId } from "@/lib/workspace-paths";
+export { shellRoomId, workspaceRoomId } from "@/lib/workspace-paths";
 
 export function saveLastCircleId(communityId: string) {
   if (typeof window === "undefined") return;

@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { loadResearchPage } from "@/lib/research/page-data";
 import { plainCompanyName } from "@/lib/research/seo-copy";
 import {
-  isResearchTicker,
+  isOpenResearchTicker,
   normalizeResearchTicker,
 } from "@/lib/research/universe";
 import { OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "@/lib/seo-routes";
@@ -58,7 +58,7 @@ export default async function Image({
 }) {
   const { ticker: raw } = await params;
   const ticker = normalizeResearchTicker(raw ?? "");
-  const page = isResearchTicker(ticker) ? await loadResearchPage(ticker) : null;
+  const page = isOpenResearchTicker(ticker) ? await loadResearchPage(ticker) : null;
   const facts = page?.facts ?? null;
   const name = facts ? plainCompanyName(facts) : ticker;
   const code = facts?.currency ?? "USD";

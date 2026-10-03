@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Card, MicroLabel, Panel, PanelHeader } from "@/components/ui/Panel";
 import { WhyThis } from "@/components/ui/WhyThis";
 import { Button } from "@/components/ui/button";
@@ -385,6 +385,8 @@ export function PlanLadderPanel({
   costBasis,
   onSetEdge,
   onReset,
+  shared = false,
+  foot,
 }: {
   ticker: string;
   ladder: Ladder;
@@ -399,13 +401,22 @@ export function PlanLadderPanel({
   /** Null where this reader cannot save, which keeps the rows read-only. */
   onSetEdge?: ((id: LadderBandId, price: number | null) => void) | null;
   onReset?: (() => void) | null;
+  /**
+   * Drawn for a reader with no account: the zones are this app's
+   * arithmetic, identical for everybody reading the company, so nothing
+   * on the panel may call them the reader's own or promise they can be
+   * changed here.
+   */
+  shared?: boolean;
+  /** Anything the page wants under the foot, such as the way to set your own. */
+  foot?: ReactNode;
 }) {
   return (
     <Panel>
       <PanelHeader
         title={
           <span className="inline-flex items-center gap-2">
-            Your fair value zones
+            {shared ? "Fair value zones" : "Your fair value zones"}
             <WhyThis
               provenance={planLadderProvenance({
                 ticker,
@@ -415,11 +426,12 @@ export function PlanLadderPanel({
                 farBelow: ladder.farBelow,
                 edited: ladder.edited,
                 at,
+                shared,
               })}
             />
           </span>
         }
-        subtitle={`Levels decided in advance, so the decision is made now rather than in the middle of a red week. They are built from ${
+        subtitle={shared ? `Where today's price sits against what ${cashtag(ticker)} looks worth, in bands sized by how far it ordinarily travels. Worked out by this app, the same for everybody reading the company, and the price moves through them live.` : `Levels decided in advance, so the decision is made now rather than in the middle of a red week. They are built from ${
           // What the ladder actually hangs off, which is not always an
           // estimate: a fund and a coin get no valuation anywhere in this
           // app, and a subtitle promising one would be describing a panel
@@ -446,7 +458,7 @@ export function PlanLadderPanel({
       />
 
       <p className="text-sm leading-relaxed text-foreground">
-        {ladderRead(ladder)}
+        {ladderRead(ladder, { shared })}
       </p>
 
       <PlanLadderTable
@@ -458,6 +470,7 @@ export function PlanLadderPanel({
       />
 
       <PlanLadderFoot ladder={ladder} code={code} onReset={onReset} />
+      {foot}
     </Panel>
   );
 }

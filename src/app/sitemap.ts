@@ -39,8 +39,8 @@ const RANK: Record<
 
   `daily` on a company page is not a promise that the file changes daily.
   It is a hint about how often it is worth coming back, and these carry a
-  share price, headlines and a written brief that is retired after five
-  days, so daily is the honest answer. Priority is relative within this one
+  share price, headlines and a written brief that is rewritten whenever
+  something happens to the company, so daily is the honest answer. Priority is relative within this one
   site: the company pages are the reason this section exists, so they rank
   above the legal pages and below the front door.
 */

@@ -1324,12 +1324,14 @@ export function planLadderProvenance(input: {
   farBelow?: boolean;
   edited?: boolean;
   at?: string | null;
+  /** Read by somebody with no account, who cannot change them here. */
+  shared?: boolean;
 }): Provenance {
   const tag = cashtag(input.ticker);
   return {
     maker: "arithmetic",
     title: "Where these levels came from",
-    headline: `No model wrote these levels and nobody at this app chose them. They are two numbers multiplied together: an estimate for ${tag} that is already on this page, and how far this share ordinarily travels in a year. Every one of them is yours to change.`,
+    headline: `No model wrote these levels and nobody at this app chose them. They are two numbers multiplied together: an estimate for ${tag} that is already on this page, and how far this share ordinarily travels in a year. ${input.shared ? "Everybody reading this company sees the same ones, and anybody with an account can set their own." : "Every one of them is yours to change."}`,
     inputs: [
       {
         what: "The anchor, which every level is a multiple of",
@@ -1376,7 +1378,9 @@ export function planLadderProvenance(input: {
       "The anchor's own assumptions. Every method behind it rests on one, and they are listed in the panel below.",
     ],
     at: input.at,
-    yours: "Change any level and the zones redraw around it. The levels are yours; this app only does the multiplication.",
+    yours: input.shared
+      ? "Check the anchor against the valuation panel below and the width against the year's high and low: both are on this page."
+      : "Change any level and the zones redraw around it. The levels are yours; this app only does the multiplication.",
   };
 }
 

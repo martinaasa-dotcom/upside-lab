@@ -21,6 +21,19 @@ export const PUBLIC_INDEX_PATHS = [
 export type PublicIndexPath = (typeof PUBLIC_INDEX_PATHS)[number];
 
 /**
+ * Sections whose CHILDREN are public and indexed while the section's own
+ * address is not a page.
+ *
+ * `/stock/<ticker>` is every company page: public, server-rendered, in the
+ * sitemap one by one, and the address the app shares. `/stock` on its own
+ * has no page (the directory of companies is `/research`), so it cannot go
+ * in the list above, which the sitemap prints as URLs, and it must not go
+ * in the private list either. robots.txt allows the children by name
+ * (`/stock/`) from this list.
+ */
+export const PUBLIC_CHILDREN_PATHS = ["/stock"] as const;
+
+/**
  * Authenticated rooms. Crawlers get noindex. Share cards still show the
  * generic product image, never a user's book.
  *
@@ -30,12 +43,13 @@ export type PublicIndexPath = (typeof PUBLIC_INDEX_PATHS)[number];
  * The `X-Robots-Tag` header in `next.config.ts` and the robots.txt line
  * both come from this list, so the prefix covers every handler under it.
  *
- * `/research` is deliberately NOT here. It is the one section of this app
- * written to be found by strangers: the index and every company page under
- * it are public, indexed, and named in the sitemap. `/stock` stays private
- * and is the same company read by somebody with a portfolio behind them,
- * which is a different page and not one anybody outside the account should
- * see.
+ * `/research` and `/stock` are deliberately NOT here. They are the one
+ * section of this app written to be found by strangers: the index at
+ * `/research` and every company page at `/stock/<ticker>` are public,
+ * indexed, and named in the sitemap. A company page is the same address
+ * for everybody; a signed-in reader gets their own holdings drawn beside
+ * it in the browser, which is never part of what a crawler or a stranger
+ * receives (see `src/app/stock/[ticker]/page.tsx`).
  *
  * `/dashboard` and `/forecast` are not here because they have no page:
  * `src/proxy.ts` answers both with a 308 to `/` before any page could
@@ -52,7 +66,6 @@ export const PRIVATE_NOINDEX_PATHS = [
   "/account",
   "/admin",
   "/upside-portfolio",
-  "/stock",
   "/auth",
 ] as const;
 

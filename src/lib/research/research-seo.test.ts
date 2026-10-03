@@ -7,7 +7,8 @@ import { makeOrdinaryFacts } from "@/lib/company/facts-fixture";
 import { fairValueRead } from "@/lib/company/fair-value";
 import { isQuotableTicker } from "@/lib/ticker";
 import { RESEARCH_REVALIDATE_SECONDS } from "@/lib/research/page-data";
-import { WARM_PER_RUN } from "@/lib/research/warm";
+import { WARM_CHECKS_PER_RUN, WARM_PER_RUN } from "@/lib/research/warm";
+import { BRIEF_MAX_AGE_MS } from "@/lib/company/brief-store";
 import {
   researchDescription,
   researchLede,
@@ -87,7 +88,10 @@ describe("the published universe is a closed, checkable list", () => {
   });
 
   it("builds one spelling of a company's address", () => {
-    expect(researchHref("nvda")).toBe("/research/NVDA");
+    // One address for everybody: the public page and the room inside the
+    // app are both `/stock/<ticker>`, and the old `/research/<ticker>` is a
+    // permanent redirect onto it.
+    expect(researchHref("nvda")).toBe("/stock/NVDA");
     expect(researchGroupFor("NVDA")?.id).toBe("chips");
     expect(researchGroupFor("ZZZZ")).toBeNull();
   });
@@ -270,21 +274,19 @@ describe("a page view can never spend a model run", () => {
       the constant and the number is written in two places. This is the
       one check that keeps them the same number.
     */
-    const page = read("src/app/research/[ticker]/page.tsx");
+    const page = read("src/app/stock/[ticker]/page.tsx");
     const found = /export const revalidate = (\d+);/.exec(page);
     expect(found?.[1]).toBe(String(RESEARCH_REVALIDATE_SECONDS));
   });
 
-  it("covers the whole list inside the store's own expiry", () => {
+  it("checks every published company against the news at least once a day", () => {
     /*
-      The warmer is the only thing that writes these pages, and it walks
-      the published list oldest first. If the list grows past what the
-      schedule can cover, pages start expiring faster than they are
-      written and readers begin meeting the figures-only page.
-
-      `BRIEF_MAX_AGE_MS` is five days and `vercel.json` runs the warmer
-      four times a day, so the whole list has to fit in four days of runs
-      with a day of slack for the companies the feed cannot answer about.
+      A page is kept until something happens to the company, and for a
+      company nobody signed in is reading, the warmer is the only thing
+      that notices. It walks the list least recently checked first, so the
+      promise "rewritten when the news calls for it" holds only if a day of
+      runs looks at the whole list. If the list outgrows the schedule, some
+      companies go days without anybody reading their headlines.
     */
     const crons = JSON.parse(read("vercel.json")) as {
       crons: { path: string }[];
@@ -293,8 +295,26 @@ describe("a page view can never spend a model run", () => {
       c.path.startsWith("/api/cron/research-briefs")
     ).length;
     expect(runsPerDay).toBeGreaterThan(0);
-    const daysToCover = RESEARCH_TICKERS.length / (runsPerDay * WARM_PER_RUN);
-    expect(daysToCover).toBeLessThan(4);
+    expect(runsPerDay * WARM_CHECKS_PER_RUN).toBeGreaterThanOrEqual(
+      RESEARCH_TICKERS.length
+    );
+  });
+
+  it("can rewrite the whole list well inside the age backstop", () => {
+    /*
+      The backstop rewrites a page nothing has happened to after three
+      weeks. If every company hit it on the same day, the write ceiling
+      has to clear the list inside the backstop with room to spare, or
+      pages would sit past it waiting their turn.
+    */
+    const crons = JSON.parse(read("vercel.json")) as {
+      crons: { path: string }[];
+    };
+    const runsPerDay = crons.crons.filter((c) =>
+      c.path.startsWith("/api/cron/research-briefs")
+    ).length;
+    const daysToRewriteAll = RESEARCH_TICKERS.length / (runsPerDay * WARM_PER_RUN);
+    expect(daysToRewriteAll * 24 * 60 * 60 * 1000).toBeLessThan(BRIEF_MAX_AGE_MS / 3);
   });
 });
 

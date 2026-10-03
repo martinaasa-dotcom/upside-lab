@@ -1,21 +1,30 @@
 /**
- * One company page, built once, read by three callers.
+ * One company page, built once, read by four callers.
  *
- * The app's own route (`/api/company/[ticker]`), the public research page
- * and the cron that warms the public pages all need the same thing: the
- * feed's figures, the headlines, the links out, and the written brief. The
- * only thing they disagree about is **whether a missing brief is worth a
- * model run right now**, and that is exactly one boolean.
+ * The app's own read (`GET /api/company/[ticker]`), the rewrite the room
+ * asks for behind it (`POST /api/company/[ticker]/brief`), the public
+ * research page and the cron that warms the public pages all need the same
+ * thing: the feed's figures, the headlines, the links out, and the written
+ * brief. The only thing they disagree about is **whether a missing or stale
+ * brief is worth a model run right now**, and that is exactly one boolean.
  *
  * That split is the whole reason this file exists, and it is the load
  * bearing rule of the public pages. A page view may never call a model. If
  * it could, one crawler walking the sitemap would spend a run per company
  * in a couple of minutes, and a page that costs money to serve is a page
  * that cannot be published. So the public path asks with `generate: false`
- * and takes whatever the shared cache has, which is a page with figures
- * and no argument on the rare occasion the cache is cold. The cron asks
- * with `generate: true`, at a rate this app sets rather than a rate a
- * stranger sets.
+ * and takes whatever the shared store has. The app's own read asks the same
+ * way, for a different reason: a reader who opens a company is handed what
+ * is on file in well under a second, and the rewrite, when one is due, is a
+ * second request made behind the page they are already reading. Nobody
+ * waits for a model to open a company any more. The two generating callers
+ * are the room's rewrite, for somebody signed in, and the cron, at a rate
+ * this app sets rather than a rate a stranger sets.
+ *
+ * What counts as "due" is `judgeBrief` in `brief-store.ts`: the company
+ * reported, an event landed in the news, the price moved a fifth, or three
+ * weeks passed. A price that merely moves is not news here. It is live on
+ * every page and placed in the fair value zones in the browser.
  *
  * The other rule is the one the API route already had and it is kept
  * exactly: the figures and the prose are fetched apart and neither may
@@ -39,7 +48,16 @@ import { companyBriefSchema } from "@/lib/ai/company-brief-schema";
 import { companyFactsKey, factsAreThin } from "@/lib/company/facts";
 import { companyReadings } from "@/lib/company/readings";
 import { companyArticles, companySources } from "@/lib/company/sources";
-import { loadCompanyBrief, saveCompanyBrief } from "@/lib/company/brief-store";
+import {
+  briefIsShowable,
+  briefWantsWriting,
+  claimBriefWrite,
+  judgeBrief,
+  readCompanyBrief,
+  releaseBriefWrite,
+  saveCompanyBrief,
+  type BriefState,
+} from "@/lib/company/brief-store";
 import type { CompanyPage } from "@/lib/company/client";
 import { fetchCompanyFacts } from "@/lib/market/fundamentals";
 import { fetchTickerPulseContext } from "@/lib/market/ticker-context";
@@ -52,20 +70,32 @@ import {
   shapedPathForTicker,
 } from "@/lib/forecast-conviction";
 import { persistServerTickerCache } from "@/lib/forecast-ticker-cache-store";
+import { researchPageTag } from "@/lib/research/page-tags";
 import { generateObject } from "ai";
+import { revalidateTag } from "next/cache";
 
 /** Leave room to build and send the response after the model stops. */
 export const LLM_BUDGET_MS = 80_000;
 
 export type BuildOutcome =
-  | { ok: true; page: CompanyPage; wroteBrief: boolean }
+  | {
+      ok: true;
+      page: CompanyPage;
+      wroteBrief: boolean;
+      /** What the stored page was judged to be before anything was written. */
+      before: BriefState;
+    }
   | { ok: false; reason: "unknown-ticker" };
 
 export type BuildOptions = {
   /**
-   * May this call spend a model run when the shared cache has nothing?
+   * May this call spend a model run when the stored page is missing or has
+   * gone stale?
    *
-   * False on every path a stranger can trigger. See the file docstring.
+   * False on every path a stranger can trigger, and on the app's own read
+   * as well: a reader opening a company is handed whatever is on file at
+   * once, and the rewrite is a second request the room makes behind it
+   * (`/api/company/[ticker]/brief`). See the file docstring.
    */
   generate: boolean;
   signal?: AbortSignal;
@@ -118,29 +148,61 @@ export async function buildCompanyPage(
     nextEarnings: context?.nextEarningsDate ?? null,
     nextEarningsIsEstimate: context?.nextIsEstimate ?? false,
   };
-  const figuresOnly = (): BuildOutcome => ({
-    ok: true,
-    page: { ...base, brief: null, briefAt: null, model: null },
-    wroteBrief: false,
-  });
 
-  const cached = await loadCompanyBrief(ticker, {
+  /*
+    THE STORED PAGE IS JUDGED, NOT JUST LOOKED UP.
+
+    `judgeBrief` answers fresh, stale or missing against today's figures,
+    today's headlines and today's price. Fresh is served as it is. Stale is
+    served too, at once, with the reason on the page, because the argument
+    on file is still the best one there is until a new one has been
+    written, and a reader made to wait a minute for it is the complaint
+    this whole arrangement exists to answer. Missing is the only case with
+    no written half to show.
+  */
+  const row = await readCompanyBrief(ticker);
+  const judged = judgeBrief(row, {
     spot: facts.price,
     factsKey,
+    articles,
   });
-  if (cached) {
-    return {
-      ok: true,
-      page: {
-        ...base,
-        brief: cached.brief,
-        briefAt: cached.generatedAt,
-        briefShared: true,
-        model: null,
-      },
-      wroteBrief: false,
-    };
-  }
+  const before: BriefState =
+    judged.kind === "missing" && thin ? { kind: "thin" } : judged;
+
+  const onFile = (writing = false): BuildOutcome =>
+    row && briefIsShowable(before)
+      ? {
+          ok: true,
+          page: {
+            ...base,
+            brief: row.brief,
+            briefAt: row.generatedAt,
+            briefShared: true,
+            briefState: before,
+            model: null,
+            ...(writing ? { writing: true } : {}),
+          },
+          wroteBrief: false,
+          before,
+        }
+      : {
+          ok: true,
+          page: {
+            ...base,
+            brief: null,
+            briefAt: null,
+            briefState: before,
+            model: null,
+            ...(writing ? { writing: true } : {}),
+          },
+          wroteBrief: false,
+          before,
+        };
+  // The figures go out whatever happened to the prose, and the name stays
+  // because it is the promise the rest of this file is held to.
+  const figuresOnly = () => onFile();
+
+  if (!briefWantsWriting(before) || !opts.generate) return onFile();
 
   /*
     A company the feed barely covers gets its figures and no written page.
@@ -148,10 +210,18 @@ export async function buildCompanyPage(
     description produces exactly the confident, unfalsifiable paragraph
     this room was built to replace.
   */
-  if (thin || !opts.generate) return figuresOnly();
+  if (thin) return figuresOnly();
 
   const chain = buildAdvisorProviderChain({ reasoning: true });
   if (chain.length === 0) return figuresOnly();
+
+  /*
+    One writer per company. Somebody else already writing this page is not
+    a failure: this caller gets what is on file, marked as being written,
+    and the room asks again in a few seconds rather than paying for the
+    same run a second time.
+  */
+  if (!(await claimBriefWrite(ticker))) return onFile(true);
 
   opts.onModelRun?.();
   const startedAt = Date.now();
@@ -276,6 +346,26 @@ export async function buildCompanyPage(
       );
     }
 
+    /*
+      The public page for this company is cleared the moment its written
+      half changes, so a stranger reading it next gets the new argument
+      rather than waiting out the six hour clock. "max" is stale while
+      revalidate: the very next visitor is still served the old page at
+      once and the new one is built behind them, so nobody waits for this
+      either. A page built in the background reads its data afresh rather
+      than from the stale entry, which is what makes the new one carry the
+      new brief.
+
+      Best effort and outside a render: this runs only on a generating
+      path, which is a route handler or the warmer, never the public page
+      itself.
+    */
+    try {
+      revalidateTag(researchPageTag(ticker), "max");
+    } catch (err) {
+      console.error("[company] could not clear the public page", err);
+    }
+
     return {
       ok: true,
       page: {
@@ -283,15 +373,19 @@ export async function buildCompanyPage(
         brief,
         briefAt: generatedAt,
         briefShared: false,
+        briefState: { kind: "fresh" },
         model: answeredBy,
       },
       wroteBrief: true,
+      before,
     };
   } catch (err) {
     if (opts.signal?.aborted) throw err;
     console.error("[company]", err);
     // The figures are the half a reader can check, so they go out whatever
-    // happened to the prose.
+    // happened to the prose, along with the page on file if there was one.
     return figuresOnly();
+  } finally {
+    await releaseBriefWrite(ticker);
   }
 }

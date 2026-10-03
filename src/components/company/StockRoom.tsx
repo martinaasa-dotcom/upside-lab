@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/Panel";
 import { WidgetErrorBoundary } from "@/components/WidgetErrorBoundary";
 import { CompanyCases } from "@/components/company/CompanyCases";
+import { BriefStatus } from "@/components/company/BriefStatus";
+import { ShareButton } from "@/components/research/ShareButton";
+import { sameMoney } from "@/lib/market/same-money";
 import { BusinessPanel } from "@/components/company/BusinessPanel";
 import { CompanyNumbers } from "@/components/company/CompanyNumbers";
 import { CompanyPath } from "@/components/company/CompanyPath";
@@ -59,11 +62,14 @@ import {
 } from "@/lib/company/facts";
 import type { FitHolding } from "@/lib/company/position-fit";
 import {
+  briefStateOf,
   companyHref,
   companyTickerFromPath,
   fetchCompanyPage,
   loadRecentCompanies,
   rememberCompany,
+  requestCompanyBrief,
+  wantsRewrite,
   type CompanyPage,
 } from "@/lib/company/client";
 import { isAbortError } from "@/lib/abort";
@@ -281,7 +287,8 @@ const PRICE_DRIFT_REFETCH = 0.05;
 function useLivePrice(
   ticker: string,
   fromPage: number | null,
-  onDrift: () => void
+  onDrift: () => void,
+  code: string = "USD"
 ): { price: number | null; at: number | null } {
   const [live, setLive] = useState<{ price: number; at: number } | null>(null);
 
@@ -295,6 +302,8 @@ function useLivePrice(
   driftRef.current = onDrift;
   const baseRef = useRef(fromPage);
   baseRef.current = fromPage;
+  const codeRef = useRef(code);
+  codeRef.current = code;
 
   useEffect(() => {
     if (!ticker) return;
@@ -310,12 +319,22 @@ function useLivePrice(
         });
         if (!res.ok) return;
         const data = (await res.json()) as {
-          quotes?: Record<string, { price?: number }>;
+          quotes?: Record<string, { price?: number; nativePrice?: number }>;
         };
         const quotes = data.quotes ?? {};
-        const found =
-          quotes[ticker]?.price ?? Object.values(quotes)[0]?.price ?? null;
-        if (stop || typeof found !== "number" || !(found > 0)) return;
+        /*
+          In the listing's money, the one every figure in this room is
+          kept in, and dropped when it plainly is not (a pence quote on a
+          page folded to pounds). It used to read the dollar price on every
+          listing, which put a euro company's live price into its own
+          zones a currency away from where it belonged.
+        */
+        const found = sameMoney(
+          quotes[ticker] ?? Object.values(quotes)[0],
+          codeRef.current,
+          baseRef.current
+        );
+        if (stop || found === null) return;
         setLive({ price: found, at: Date.now() });
         const base = baseRef.current;
         if (base && base > 0 && Math.abs(found - base) / base > PRICE_DRIFT_REFETCH) {
@@ -419,8 +438,81 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
   // the same one `workspaceRoomId` gives this path.
   useEffect(() => {
     if (!ticker) return;
-    return onWorkspaceRefresh(`${REFRESH_ROOM_PREFIX}${ticker}`, () => load());
+    return onWorkspaceRefresh(`${REFRESH_ROOM_PREFIX}${ticker}`, () => {
+      // A pull is the reader asking again, so a rewrite that failed may be
+      // asked for once more.
+      askedRef.current = null;
+      return load();
+    });
   }, [ticker, load]);
+
+  /*
+    THE PAGE ON FILE IS SHOWN AT ONCE, AND A REWRITE HAPPENS BEHIND IT.
+
+    The read above never waits on a model, so a company somebody looked at
+    before opens in about the time its figures take, whatever state its
+    written half is in. When that half is stale (the company reported, an
+    event landed in the news, the price moved a fifth, or three weeks
+    passed) or missing, this asks for a rewrite and swaps the new page in
+    when it lands, with a note on the argument saying what is happening
+    in the meantime. The reader is never shown a skeleton for it.
+
+    Keyed on what the page says about its written half rather than on the
+    page object, so the room's own refetches (a pull, a price drift) do not
+    cancel a rewrite already in flight and do not ask for a second one. A
+    rewrite that comes back with the same page, because the run failed, is
+    not asked for again until something else changes.
+  */
+  const [rewriting, setRewriting] = useState(false);
+  const [rewriteFailed, setRewriteFailed] = useState(false);
+  const rewriteKey = useMemo(() => {
+    if (!page || !wantsRewrite(page)) return null;
+    const state = briefStateOf(page);
+    const why = state.kind === "stale" ? state.reason : state.kind;
+    return `${ticker}|${page.briefAt ?? "none"}|${why}`;
+  }, [page, ticker]);
+  const askedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!rewriteKey || askedRef.current === rewriteKey) return;
+    askedRef.current = rewriteKey;
+    const ctrl = new AbortController();
+    setRewriting(true);
+    setRewriteFailed(false);
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const t = window.setTimeout(resolve, ms);
+        ctrl.signal.addEventListener("abort", () => {
+          window.clearTimeout(t);
+          resolve();
+        });
+      });
+    void (async () => {
+      try {
+        let next = await requestCompanyBrief(ticker, ctrl.signal);
+        /*
+          Somebody else got the claim to write it first. Their run lands in
+          the shared store, so this asks the ordinary read again until it
+          does, rather than paying for the same run a second time.
+        */
+        for (let tries = 0; next.writing && tries < 10; tries += 1) {
+          await wait(10_000);
+          if (ctrl.signal.aborted) return;
+          const read = await fetchCompanyPage(ticker, ctrl.signal);
+          next = wantsRewrite(read) ? { ...read, writing: true } : read;
+        }
+        if (ctrl.signal.aborted) return;
+        setPage(next);
+        if (wantsRewrite(next) && !next.writing) setRewriteFailed(true);
+      } catch (err) {
+        if (isAbortError(err) || ctrl.signal.aborted) return;
+        setRewriteFailed(true);
+      } finally {
+        if (!ctrl.signal.aborted) setRewriting(false);
+      }
+    })();
+    return () => ctrl.abort();
+  }, [rewriteKey, ticker]);
 
   const facts = page?.facts ?? null;
   const code = (facts?.currency ?? "USD") as CurrencyCode;
@@ -446,7 +538,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
     a price from the moment it was built; this one is minutes old at
     worst, and it is what decides which band of the ladder the reader is in.
   */
-  const live = useLivePrice(ticker, facts?.price ?? null, () => void load());
+  const live = useLivePrice(ticker, facts?.price ?? null, () => void load(), code);
   const { ladders, setLadders } = usePlanLadders();
   const houseForecast = useHouseForecastDefaults();
 
@@ -645,6 +737,17 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                           {signedPercent(facts.changePercent)} today
                         </span>
                       )}
+                      {/*
+                        The page is public at this same address, so a link
+                        sent from here opens for anybody, account or not,
+                        and shows them the company without the reader's
+                        own holdings.
+                      */}
+                      <ShareButton
+                        ticker={ticker}
+                        name={facts.name}
+                        className="mt-2"
+                      />
                     </div>
                   }
                 />
@@ -835,8 +938,30 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                     at={page.briefAt}
                     model={page.model}
                     shared={page.briefShared}
+                    status={
+                      <BriefStatus
+                        state={briefStateOf(page)}
+                        ticker={ticker}
+                        briefAt={page.briefAt}
+                        code={code}
+                        rewriting={rewriting}
+                        failed={rewriteFailed}
+                      />
+                    }
                   />
                 </WidgetErrorBoundary>
+              )}
+
+              {!page.brief && rewriting && (
+                <Panel>
+                  <BriefStatus
+                    state={briefStateOf(page)}
+                    ticker={ticker}
+                    briefAt={null}
+                    code={code}
+                    rewriting
+                  />
+                </Panel>
               )}
 
               {page.brief && (
@@ -892,7 +1017,7 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
                 />
               </WidgetErrorBoundary>
 
-              {!page.brief && !page.thin && (
+              {!page.brief && !page.thin && !rewriting && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   The written half of this page could not be produced this
                   time, so you have the figures and the links and none of

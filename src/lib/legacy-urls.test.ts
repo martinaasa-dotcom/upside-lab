@@ -168,4 +168,18 @@ describe("coverage", () => {
     );
     expect(call.length).toBeGreaterThan(0);
   });
+
+  it("moves the old public company address onto the one address", () => {
+    /*
+      A company page used to be public at /research/<ticker> while the
+      room inside the app was /stock/<ticker>. They are one address now,
+      and the old one is answered permanently so a search engine carries
+      what it learned about it across.
+    */
+    expect(to("/research/NVDA")).toBe("/stock/NVDA");
+    expect(to("/research/nvda")).toBe("/stock/NVDA");
+    expect(to("/research/NVDA/opengraph-image")).toBe("/stock/NVDA/opengraph-image");
+    // The directory of companies stays where it is.
+    expect(to("/research")).toBeNull();
+  });
 });

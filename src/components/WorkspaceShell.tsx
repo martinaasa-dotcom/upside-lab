@@ -15,8 +15,10 @@ import {
   WORKSPACE_SHOW_EVENT,
   WORKSPACE_DOCK_SLOT_ID,
   setActiveWorkspaceRoom,
-  workspaceRoomId,
+  shellRoomId,
 } from "@/lib/workspace-rooms";
+import { useAuth } from "@/components/AuthProvider";
+import { supabaseIsConfigured } from "@/lib/supabase/env";
 import { AIM_GIVES_UP_MS, onRouteAim } from "@/lib/route-aim";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
@@ -116,6 +118,15 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   /*
+    Who is reading decides one thing here: whether a company page is the
+    room inside the app or the public page (`shellRoomId`). With no
+    Supabase there is no sign-in to be outside of, so everybody counts.
+  */
+  const { user } = useAuth();
+  const signedIn = !supabaseIsConfigured() || Boolean(user);
+  const signedInRef = useRef(signedIn);
+  signedInRef.current = signedIn;
+  /*
     THE ROOM CHANGES ON THE PRESS, FOR THE SAME REASON THE BOOK'S TABS DO.
 
     `Dashboard` already refuses to wait for the router before showing the
@@ -153,7 +164,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
        * otherwise blank whichever room is on screen and put `children`
        * there, which is a worse answer than waiting.
        */
-      if (!workspaceRoomId(path)) return;
+      if (!shellRoomId(path, signedInRef.current)) return;
       setAimedPath(path);
       timer = setTimeout(() => setAimedPath(null), AIM_GIVES_UP_MS);
     });
@@ -168,7 +179,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   const shownPath = aimedPath ?? pathname;
-  const room = workspaceRoomId(shownPath);
+  const room = shellRoomId(shownPath, signedIn);
   const mountedRef = useRef<Set<string>>(new Set());
   const prevRoomRef = useRef<string | null>(null);
   const scrollRef = useRef(new Map<string, number>());

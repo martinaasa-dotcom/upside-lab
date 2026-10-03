@@ -4,7 +4,11 @@ import {
   ROBOTS_ONLY_AI_TOKENS,
   WELCOME_USER_AGENTS,
 } from "@/lib/bot-policy";
-import { PRIVATE_NOINDEX_PATHS, PUBLIC_INDEX_PATHS } from "@/lib/seo-routes";
+import {
+  PRIVATE_NOINDEX_PATHS,
+  PUBLIC_CHILDREN_PATHS,
+  PUBLIC_INDEX_PATHS,
+} from "@/lib/seo-routes";
 import { siteUrl } from "@/lib/site-url";
 
 const BASE_URL = siteUrl();
@@ -25,14 +29,22 @@ const BASE_URL = siteUrl();
   resolves the two by longest match, and without the anchor the allow rule
   would cover the children too.
 
-  `/research` is the one public path whose children must be crawled, since
-  the children are the point, so it is deliberately left unanchored.
+  `/research` is a public path whose children must be crawled, since the
+  children are the point, so it is deliberately left unanchored. The other
+  kind is `PUBLIC_CHILDREN_PATHS`: `/stock/`, where every company page
+  lives, which has no index page of its own and is allowed by its trailing
+  slash so the rule covers the children and nothing else.
 */
 function allowRule(path: string): string {
   if (path === "/") return "/";
   if (path === "/research") return "/research";
   return `${path}$`;
 }
+
+const ALLOW = [
+  ...PUBLIC_INDEX_PATHS.map(allowRule),
+  ...PUBLIC_CHILDREN_PATHS.map((p) => `${p}/`),
+];
 
 const DISALLOW = [...PRIVATE_NOINDEX_PATHS, "/communities/", "/api/"];
 
@@ -56,12 +68,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: PUBLIC_INDEX_PATHS.map(allowRule),
+        allow: ALLOW,
         disallow: DISALLOW,
       },
       ...WELCOME_USER_AGENTS.map((userAgent) => ({
         userAgent,
-        allow: PUBLIC_INDEX_PATHS.map(allowRule),
+        allow: ALLOW,
         disallow: DISALLOW,
       })),
       /*

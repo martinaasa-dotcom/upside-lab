@@ -1319,6 +1319,28 @@ export function fairValueRead(
 }
 
 /**
+ * The same reading with today's price moved, and nothing else.
+ *
+ * A page is built from figures and an argument that hold for hours or
+ * weeks, and from a price that holds for seconds. The browser fetches the
+ * price live and this places it: the estimate, its methods and its spread
+ * are exactly the ones the page was built with, so a quiet day moves the
+ * marker and the gap and never the fair value under them. That is the
+ * honest version of "live" here, since recomputing the estimate from a
+ * live price would quietly re-weight the market's own method on every
+ * tick and make the fair value follow the price around.
+ */
+export function withSpot(read: FairValueRead, spot: number | null | undefined): FairValueRead {
+  if (!(typeof spot === "number" && Number.isFinite(spot) && spot > 0)) return read;
+  const estimate = read.estimate.price;
+  return {
+    ...read,
+    spot,
+    gap: estimate ? (estimate - spot) / spot : null,
+  };
+}
+
+/**
  * The gap said in words, without a verdict in it.
  *
  * Deliberately never "cheap" or "expensive". Those are conclusions, and
