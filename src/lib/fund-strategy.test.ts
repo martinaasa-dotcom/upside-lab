@@ -333,6 +333,12 @@ describe("the watchlist says what each name is waiting for", () => {
     expect(list[0]!.waitFor).toMatch(/A close above \$110\.00/);
   });
 
+  it("names the turn up, not a dip, when it has already dipped", () => {
+    const dipped = read({ ticker: "DIP", price: 90, high: 110, sma50: 95, sma200: 80, rsi: 39, rsiPrev: 41, rsiLow: 37 });
+    const list = watchlistFrom({ DIP: dipped }, new Set());
+    expect(list[0]!.waitFor).toMatch(/A higher close to turn up from its dip/);
+  });
+
   it("names the dip when the high is far away", () => {
     const far = read({ ticker: "FAR", price: 90, high: 110, sma50: 95, sma200: 80, rsi: 46, rsiPrev: 47, rsiLow: 44 });
     const list = watchlistFrom({ FAR: far }, new Set());

@@ -147,12 +147,17 @@ export function watchlistFrom(
         toHigh < 0.05;
       // Distance to each way in, on one scale: per cent to the high, or
       // RSI points to the dip divided by ten.
-      const dipGap = Math.max(0, r.rsi - FUND_RULES.oversoldRsi) / 10;
+      const dipGap =
+        r.rsiLow <= FUND_RULES.oversoldRsi ? 0 : Math.max(0, r.rsi - FUND_RULES.oversoldRsi) / 10;
       const gap = breakoutNear ? Math.min(toHigh * 100, dipGap) : dipGap;
+      // Already dipped far enough: what it waits for is the turn back up.
+      const dipped = r.rsiLow <= FUND_RULES.oversoldRsi;
       const waitFor =
         breakoutNear && toHigh * 100 <= dipGap
           ? `A close above ${usd(r.high)}, its highest of the last three months (now ${usd(r.price)}).`
-          : `A pullback to an RSI of ${FUND_RULES.oversoldRsi} (now ${r.rsi.toFixed(0)}) while it holds above ${usd(r.sma200)}.`;
+          : dipped
+            ? `A higher close to turn up from its dip (RSI ${r.rsi.toFixed(0)}) while it holds above ${usd(r.sma200)}.`
+            : `A pullback to an RSI of ${FUND_RULES.oversoldRsi} (now ${r.rsi.toFixed(0)}) while it holds above ${usd(r.sma200)}.`;
       return { ticker: r.ticker, gap, waitFor };
     })
     .sort((a, b) => a.gap - b.gap)
