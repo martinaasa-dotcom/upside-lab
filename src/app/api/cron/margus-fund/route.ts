@@ -58,6 +58,7 @@ import {
   type FundXPostInput,
 } from "@/lib/fund-x-copy";
 import { postTweet, xPostingEnabled } from "@/lib/x-post";
+import { fetchFundPool } from "@/lib/market/fund-pool-fetch";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logError } from "@/lib/error-log";
 import { generateObject } from "ai";
@@ -69,8 +70,6 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** The companies the Fund may own; anything else it finds is sold whole. */
-const FUND_UNIVERSE_SET: ReadonlySet<string> = new Set(FUND_UNIVERSE);
 
 function daysBetween(fromIso: string, toIso: string): number {
   const from = new Date(`${fromIso}T00:00:00Z`).getTime();
@@ -285,7 +284,9 @@ async function runFundDay(
   supabase: SupabaseClient,
   today: string,
   history: Record<string, DailyCloseSeries>,
-  isLast: boolean
+  isLast: boolean,
+  /** The companies the Fund may own today; anything else it holds is sold whole. */
+  universeSet: ReadonlySet<string>
 ): Promise<DayResult> {
   // Idempotent — a manual re-trigger on a day the cron already ran just
   // reports what already happened instead of double-trading.
@@ -453,7 +454,7 @@ async function runFundDay(
     positions,
     reads,
     bench,
-    universe: FUND_UNIVERSE_SET,
+    universe: universeSet,
   });
 
   // Apply every order to the stored book, in the order the rules gave.
@@ -850,17 +851,33 @@ async function handleGET(req: Request) {
   try {
     const { data: openRows } = await supabase
       .from(PORTFELL_TABLES.margusFundHoldings)
-      .select("ticker")
+      .select("ticker, exit_plan")
       .eq("status", "open");
+    const open = (openRows ?? []) as { ticker: string; exit_plan: string | null }[];
+    // Today's retail favourites, judged by the same rules as the fixed list.
+    const pool = await fetchFundPool(supabase);
+    logEvent("fund_pool", { size: pool.length, names: pool.join(",") });
     const universe = [
       ...new Set([
         FUND_BENCHMARK,
         ...FUND_UNIVERSE,
-        ...((openRows ?? []) as { ticker: string }[]).map((h) =>
-          h.ticker.toUpperCase()
-        ),
+        ...pool,
+        ...open.map((h) => h.ticker.toUpperCase()),
       ]),
     ];
+    /*
+      What may be owned: the fixed list, today's pool, and every company the
+      Fund already bought on its own rules (it has an exit plan), so a name
+      that stops trending is held to its plan rather than dumped the next
+      day. A holding with no exit plan and no place on either list is money
+      parked somewhere that is not the benchmark, like the QQQ left by the
+      Nasdaq 100 run, and that is sold.
+    */
+    const universeSet: ReadonlySet<string> = new Set([
+      ...FUND_UNIVERSE,
+      ...pool,
+      ...open.filter((h) => h.exit_plan).map((h) => h.ticker.toUpperCase()),
+    ]);
     const history = await fetchDailyCloseHistory(universe);
     const benchSeries = history[FUND_BENCHMARK];
     if (!benchSeries || Object.keys(history).length < universe.length / 2) {
@@ -928,7 +945,13 @@ async function handleGET(req: Request) {
 
     const done: Extract<DayResult, { kind: "done" }>[] = [];
     for (const [i, day] of missing.entries()) {
-      const result = await runFundDay(supabase, day, history, i === missing.length - 1);
+      const result = await runFundDay(
+        supabase,
+        day,
+        history,
+        i === missing.length - 1,
+        universeSet
+      );
       // A later day stands on an earlier one, so a skipped day ends the run.
       if (result.kind === "skipped") {
         if (done.length === 0) {

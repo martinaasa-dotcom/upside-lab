@@ -64,6 +64,12 @@ export const FUND_UNIVERSE: readonly string[] = [
   // against 34.2% over 2024-2026, worst fall unchanged. A name needs about a
   // year of closes before the rules read it, so a recent listing waits.
   "NBIS", "CRWV", "RKLB", "ASTS", "RDDT", "ZETA", "BMNR", "MSTR",
+  // Added the same day, also Martin's call. With all eleven the list returns
+  // 23.8% and 36.8%: HOOD and SOFI cost the recent window about four points
+  // and BE gave two back, which is also a fair measure of how much these
+  // figures move when two or three names change. Beyond this fixed list the
+  // Fund also looks at today's retail favourites (`fund-pool.ts`).
+  "HOOD", "SOFI", "BE",
 ];
 
 /** Every number the rules use, in one place, each with its reason. */
