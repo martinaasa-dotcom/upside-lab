@@ -20,6 +20,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarGroup,
+  AvatarGroupCount,
   AvatarImage,
 } from "@/components/ui/avatar";
 import {
@@ -99,16 +100,27 @@ function SharedNameRow({
     >
       <>
         <ItemMedia className="w-20">
+          {/*
+            Three faces and a count, each with one letter. Every name is
+            printed beside the stack, so the stack only has to read as
+            people; with two letters each, the overlap cut every second
+            letter in half and four friends read as "AI P! LI JM".
+          */}
           <AvatarGroup>
-            {people.map((name) => {
+            {people.slice(0, 3).map((name) => {
               const src = avatarByName.get(name);
               return (
                 <Avatar key={name} size="sm">
                   {src ? <AvatarImage src={src} alt="" /> : null}
-                  <AvatarFallback>{initialsFromName(name)}</AvatarFallback>
+                  <AvatarFallback>
+                    {initialsFromName(name).slice(0, 1)}
+                  </AvatarFallback>
                 </Avatar>
               );
             })}
+            {people.length > 3 ? (
+              <AvatarGroupCount>+{people.length - 3}</AvatarGroupCount>
+            ) : null}
           </AvatarGroup>
         </ItemMedia>
         <ItemContent>

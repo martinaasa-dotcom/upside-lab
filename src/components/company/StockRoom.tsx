@@ -886,8 +886,8 @@ export function StockRoom({ ticker: fromProps }: { ticker?: string }) {
 
               {!page.brief && !page.thin && (
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  The written argument could not be produced this time. The
-                  figures and links are all here. Pull down to try again.
+                  The written argument did not arrive this time. Pull down
+                  to try again.
                 </p>
               )}
 

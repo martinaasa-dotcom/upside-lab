@@ -204,8 +204,8 @@ export function PositionFitCard({
         <Card tone="default" className={cn("flex flex-col gap-2")}>
           <p className="text-sm leading-relaxed text-warning">{note}</p>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            An observation about size, not a reason to act. Plenty of people
-            hold one company at that weight on purpose.
+            About size, not a reason to act. Plenty of people hold that much
+            in one place on purpose.
           </p>
         </Card>
       )}

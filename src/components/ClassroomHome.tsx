@@ -46,6 +46,17 @@ export type ClassroomHomeProps = {
   members: ReactNode;
 };
 
+
+/**
+ * Gain or loss colour off the figure as printed, to one decimal of a per
+ * cent. Off the raw fraction, a class up two hundredths of a per cent
+ * printed a plain "0.0%" in green.
+ */
+function toneAsPrinted(pct: number | null | undefined): "up" | "down" | undefined {
+  const shown = Math.round((pct ?? 0) * 1000);
+  return shown > 0 ? "up" : shown < 0 ? "down" : undefined;
+}
+
 export function ClassroomHome({
   name,
   houseNote,
@@ -130,13 +141,7 @@ export function ClassroomHome({
                 : NO_VALUE
             }
             sub={signedCurrency(overview.totals.todayDollar)}
-            tone={
-              (overview.totals.todayPct ?? 0) > 0
-                ? "up"
-                : (overview.totals.todayPct ?? 0) < 0
-                  ? "down"
-                  : undefined
-            }
+            tone={toneAsPrinted(overview.totals.todayPct)}
           />
           <Score
             label="Total value"
@@ -150,13 +155,7 @@ export function ClassroomHome({
                 : NO_VALUE
             }
             sub={`${signedCurrency(classVsStartDollar)} · ${currency(startingCash)} each`}
-            tone={
-              (classVsStartPct ?? 0) > 0
-                ? "up"
-                : (classVsStartPct ?? 0) < 0
-                  ? "down"
-                  : undefined
-            }
+            tone={toneAsPrinted(classVsStartPct)}
           />
         </Scoreboard>
       </WidgetErrorBoundary>

@@ -285,7 +285,7 @@ function Ladder({
         {pulled && (
           <span
             aria-hidden
-            className="bar-reveal absolute inset-y-[3px] rounded-full bg-foreground/[0.06]"
+            className="bar-reveal absolute inset-y-[2px] rounded-full bg-foreground/[0.08]"
             style={{
               left: `${at(reachFrom)}%`,
               width: `${at(reachTo) - at(reachFrom)}%`,

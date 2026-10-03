@@ -152,7 +152,7 @@ export function companySources(input: {
         id: "edgar",
         label: "The company's own filings",
         detail:
-          "What they are legally required to tell the regulator, risks included. Dry, long, and nobody is allowed to spin it.",
+          "What the law makes them tell the regulator, risks included. Dry, long and unspun.",
         href: edgar,
         kind: "primary",
       });
@@ -165,7 +165,7 @@ export function companySources(input: {
       id: "website",
       label: "The company's own site",
       detail:
-        "Their side of the story. Useful for what they sell, not neutral on anything else.",
+        "Their side of the story: good on what they sell, not neutral on the rest.",
       href: site,
       kind: "primary",
     });

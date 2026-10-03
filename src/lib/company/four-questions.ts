@@ -207,12 +207,12 @@ function qualityAnswer(f: CompanyFacts, read: FairValueRead): FourQuestionAnswer
   }
   const quality =
     margin !== null
-      ? `It keeps ${currency(Math.max(margin, 0) * 100, 2)} of every $100 it sells${roe !== null ? `, and makes ${percent(roe, 0)} a year on the money its owners have left in it` : ""}.`
-      : `It makes ${percent(roe ?? 0, 0)} a year on the money its owners have left in it.`;
+      ? `It keeps ${currency(Math.max(margin, 0) * 100, 2)} of every $100 it sells${roe !== null ? ` and earns ${percent(roe, 0)} a year on its owners' money` : ""}.`
+      : `It earns ${percent(roe ?? 0, 0)} a year on its owners' money.`;
   const gap = read.gap;
   const priceHalf =
     read.estimate.price !== null && ok(gap)
-      ? ` Separately, the ${read.estimate.used.length} ${read.estimate.used.length === 1 ? "method" : "methods"} below put its worth today at ${currency(read.estimate.price, 2)}, ${percent(Math.abs(gap), 1)} ${gap > 0 ? "above" : "below"} today.`
+      ? ` The ${read.estimate.used.length} ${read.estimate.used.length === 1 ? "method" : "methods"} below put its worth at ${currency(read.estimate.price, 2)}, ${percent(Math.abs(gap), 1)} ${gap > 0 ? "above" : "below"} today.`
       : " The price half could not be worked out for this one.";
   return {
     ...base,

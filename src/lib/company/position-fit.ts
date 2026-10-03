@@ -167,7 +167,7 @@ export function positionFit(input: {
 export function concentrationNote(fit: PositionFit): string | null {
   const pct = Math.round(fit.weight * 100);
   if (pct < 20) return null;
-  return `That would make ${fit.ticker} about ${pct}% of everything you own, so this one company would move your year a lot.`;
+  return `That would make ${fit.ticker} about ${pct}% of everything you own, so ${fit.ticker} alone would move your year a lot.`;
 }
 
 /** Preset amounts, so somebody without a figure in mind still gets an answer. */
